@@ -8,6 +8,7 @@ import {
 } from 'react-native'
 
 import Geolocation from './module'
+import { BackgroundLocation } from 'NativeModules'
 
 class BackgroundGeolocation extends Component {
   componentDidMount() {
@@ -26,29 +27,17 @@ class BackgroundGeolocation extends Component {
 
     })*/
 
+    BackgroundLocation
+      .startObserving({})
+      .then(e => console.log(e))
+      .catch(e => console.warn(e))
+
     Geolocation.watchPosition(
       position => {
         console.log(position)
-
-        fetch('http://10.18.203.191:3000', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-          },
-          body: JSON.stringify(position),
-        }).catch(e => console.warn(e))
       },
       error => {
         console.warn(error)
-
-        Alert.alert(
-          'Le GPS est pas activé coco',
-          'Ici, des détails super cools',
-          [
-            {text: 'Emmène moi grand fou', onPress: () => Geolocation.openLocationSettings()},
-          ]
-        )
       },
     )
   }

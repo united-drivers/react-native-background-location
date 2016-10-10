@@ -7,6 +7,7 @@ import android.os.Bundle;
 import android.os.IBinder;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.util.Log;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
@@ -18,6 +19,7 @@ import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.location.LocationSettingsRequest;
 import com.google.android.gms.location.LocationSettingsResult;
 import com.google.android.gms.location.LocationSettingsStatusCodes;
+import com.unitedd.location.constant.Application;
 import com.unitedd.location.constant.MessageType;
 
 public class BackgroundLocationService extends Service implements
@@ -51,11 +53,6 @@ public class BackgroundLocationService extends Service implements
       .addOnConnectionFailedListener(this)
       .build();
 
-    mLocationRequest = new LocationRequest()
-      .setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY)
-      .setFastestInterval(1000)
-      .setInterval(1000);
-
     mGoogleApiClient.connect();
   }
 
@@ -77,10 +74,15 @@ public class BackgroundLocationService extends Service implements
 
   @Override
   public void onConnected(@Nullable Bundle bundle) {
-    LocationSettingsRequest settingsRequest = new LocationSettingsRequest
-      .Builder()
+    Log.e(Application.TAG, "it is connected");
+
+    mLocationRequest = new LocationRequest()
+      .setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY)
+      .setFastestInterval(1000)
+      .setInterval(1000);
+
+    LocationSettingsRequest settingsRequest = new LocationSettingsRequest.Builder()
       .addLocationRequest(mLocationRequest)
-      .setAlwaysShow(true)
       .build();
 
     LocationServices.SettingsApi
@@ -115,6 +117,8 @@ public class BackgroundLocationService extends Service implements
 
   @Override
   public void onLocationChanged(Location location) {
+    Log.e(Application.TAG, "Location has changed");
+
     mLocationIntent.putExtra("latitude", location.getLatitude());
     mLocationIntent.putExtra("longitude", location.getLongitude());
     mLocationIntent.putExtra("altitude", location.getAltitude());
