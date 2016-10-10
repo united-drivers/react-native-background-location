@@ -10,7 +10,6 @@ import android.os.Bundle;
 import android.os.IBinder;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
-import android.util.Log;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
@@ -22,7 +21,6 @@ import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.location.LocationSettingsRequest;
 import com.google.android.gms.location.LocationSettingsResult;
 import com.google.android.gms.location.LocationSettingsStatusCodes;
-import com.unitedd.location.constant.Application;
 import com.unitedd.location.constant.MessageType;
 import com.unitedd.location.constant.PriorityLevel;
 
@@ -46,26 +44,23 @@ public class BackgroundLocationService extends Service implements
 
   @Override
   public int onStartCommand(Intent intent, int flags, int startId) {
-    super.onStartCommand(intent, flags, startId);
-
-    int accuracy = intent.getIntExtra("accuracy", PriorityLevel.HIGH_ACCURACY);
-
-    mLocationRequest = new LocationRequest()
-      .setPriority(intent.getIntExtra("accuracy", PriorityLevel.HIGH_ACCURACY))
-      .setFastestInterval(1000)
-      .setInterval(1000);
-
+    setOptions(intent.getExtras());
     return START_STICKY;
+  }
+
+  private void setOptions(Bundle options) {
+    if (mLocationRequest == null)
+      mLocationRequest = new LocationRequest();
+
+    // TODO: fallback on default params
+    mLocationRequest.setPriority(options.getInt("accuracy", PriorityLevel.BALANCED));
+    mLocationRequest.setFastestInterval(1000);
+    mLocationRequest.setInterval(1000);
   }
 
   @Override
   public void onCreate() {
-    mOptionsReceiver = new OptionsReceiver();
-    mLocationIntent = new Intent(MessageType.LOCATION);
-    mErrorIntent = new Intent(MessageType.ERROR);
-
-    getApplicationContext()
-      .registerReceiver(mOptionsReceiver, new IntentFilter(MessageType.SETTINGS));
+    registerOptionListener();
 
     mGoogleApiClient = new GoogleApiClient
       .Builder(getApplicationContext())
@@ -83,12 +78,8 @@ public class BackgroundLocationService extends Service implements
 
     mGoogleApiClient.unregisterConnectionFailedListener(this);
     mGoogleApiClient.unregisterConnectionCallbacks(this);
-
-    if (mGoogleApiClient.isConnected()) {
-      LocationServices.FusedLocationApi
-        .removeLocationUpdates(mGoogleApiClient, this);
-    }
-
+    unregisterOptionListener();
+    stopLocationUpdates();
     mGoogleApiClient.disconnect();
     mGoogleApiClient = null;
   }
@@ -123,7 +114,7 @@ public class BackgroundLocationService extends Service implements
 
     switch (status.getStatusCode()) {
       case LocationSettingsStatusCodes.SUCCESS:
-        requestLocationUpdate();
+        startLocationUpdates();
         break;
       case LocationSettingsStatusCodes.RESOLUTION_REQUIRED:
         sendError(0, "Resolution required");
@@ -133,7 +124,52 @@ public class BackgroundLocationService extends Service implements
 
   @Override
   public void onLocationChanged(Location location) {
-    if (mLocationIntent == null) return;
+    sendLocation(location);
+  }
+
+  private void startLocationUpdates() {
+    if (mGoogleApiClient == null || mLocationRequest == null) return;
+
+    LocationServices.FusedLocationApi
+      .requestLocationUpdates(mGoogleApiClient, mLocationRequest, this);
+  }
+
+  private void stopLocationUpdates() {
+    if (mGoogleApiClient == null || !mGoogleApiClient.isConnected()) return;
+
+    LocationServices.FusedLocationApi
+      .removeLocationUpdates(mGoogleApiClient, this);
+  }
+
+  private void registerOptionListener() {
+    if (mOptionsReceiver != null) return;
+    mOptionsReceiver = new OptionsReceiver();
+
+    getApplicationContext().registerReceiver(
+      mOptionsReceiver,
+      new IntentFilter(MessageType.SETTINGS
+      ));
+  }
+
+  private void unregisterOptionListener() {
+    if (mOptionsReceiver == null) return;
+    getApplicationContext().unregisterReceiver(mOptionsReceiver);
+    mOptionsReceiver = null;
+  }
+
+  private class OptionsReceiver extends BroadcastReceiver {
+
+    @Override
+    public void onReceive(Context context, Intent intent) {
+      //stopLocationUpdates();
+      //setOptions(intent.getExtras());
+      //startLocationUpdates();
+    }
+  }
+
+  private void sendLocation(Location location) {
+    if (mLocationIntent == null)
+      mLocationIntent = new Intent(MessageType.LOCATION);
 
     mLocationIntent.putExtra("latitude", location.getLatitude());
     mLocationIntent.putExtra("longitude", location.getLongitude());
@@ -150,24 +186,13 @@ public class BackgroundLocationService extends Service implements
     sendBroadcast(mLocationIntent);
   }
 
-  private void requestLocationUpdate() {
-    LocationServices.FusedLocationApi
-      .requestLocationUpdates(mGoogleApiClient, mLocationRequest, this);
-  }
-
   private void sendError(int code, String message) {
-    if (mErrorIntent == null) return;
+    if (mErrorIntent == null)
+      mErrorIntent = new Intent(MessageType.ERROR);
 
     mErrorIntent.putExtra("code", code);
     mErrorIntent.putExtra("message", message);
+
     sendBroadcast(mErrorIntent);
-  }
-
-  private class OptionsReceiver extends BroadcastReceiver {
-
-    @Override
-    public void onReceive(Context context, Intent intent) {
-      int accuracy = intent.getIntExtra("accuracy", PriorityLevel.HIGH_ACCURACY);
-    }
   }
 }

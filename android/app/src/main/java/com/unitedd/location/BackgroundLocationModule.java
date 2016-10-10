@@ -205,7 +205,9 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
 
     if (mLocationOptions != null) {
       // Pass here all the options used for the service starting
-      mServiceIntent.putExtra("accuracy", mLocationOptions.accuracy);
+      Bundle options = new Bundle();
+      options.putInt("accuracy", mLocationOptions.accuracy);
+      mServiceIntent.putExtras(options);
     }
 
     context.registerReceiver(mLocationReceiver, new IntentFilter(MessageType.LOCATION));
