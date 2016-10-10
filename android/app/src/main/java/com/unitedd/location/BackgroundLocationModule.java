@@ -48,11 +48,13 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
   private @Nullable ErrorReceiver mErrorReceiver;
   private @Nullable LocationReceiver mLocationReceiver;
   private @Nullable Promise mStartPromise;
+  private @Nullable Intent mOptionsIntent;
   private @Nullable Intent mServiceIntent;
 
   public BackgroundLocationModule(ReactApplicationContext reactContext) {
     super(reactContext);
     reactContext.addActivityEventListener(this);
+    mOptionsIntent = new Intent(MessageType.SETTINGS);
   }
 
   @Override
@@ -200,6 +202,11 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
     mLocationReceiver = new LocationReceiver();
     mErrorReceiver = new ErrorReceiver();
     mServiceIntent = new Intent(context, BackgroundLocationService.class);
+
+    if (mLocationOptions != null) {
+      // Pass here all the options used for the service starting
+      mServiceIntent.putExtra("accuracy", mLocationOptions.accuracy);
+    }
 
     context.registerReceiver(mLocationReceiver, new IntentFilter(MessageType.LOCATION));
     context.registerReceiver(mErrorReceiver, new IntentFilter(MessageType.ERROR));

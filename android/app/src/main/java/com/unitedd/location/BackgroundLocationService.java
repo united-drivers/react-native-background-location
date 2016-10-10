@@ -1,7 +1,10 @@
 package com.unitedd.location;
 
 import android.app.Service;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.location.Location;
 import android.os.Bundle;
 import android.os.IBinder;
@@ -31,6 +34,7 @@ public class BackgroundLocationService extends Service implements
 
   private @Nullable GoogleApiClient mGoogleApiClient;
   private @Nullable LocationRequest mLocationRequest;
+  private @Nullable OptionsReceiver mOptionsReceiver;
   private @Nullable Intent mLocationIntent;
   private @Nullable Intent mErrorIntent;
 
@@ -41,9 +45,27 @@ public class BackgroundLocationService extends Service implements
   }
 
   @Override
+  public int onStartCommand(Intent intent, int flags, int startId) {
+    super.onStartCommand(intent, flags, startId);
+
+    int accuracy = intent.getIntExtra("accuracy", PriorityLevel.HIGH_ACCURACY);
+
+    mLocationRequest = new LocationRequest()
+      .setPriority(intent.getIntExtra("accuracy", PriorityLevel.HIGH_ACCURACY))
+      .setFastestInterval(1000)
+      .setInterval(1000);
+
+    return START_STICKY;
+  }
+
+  @Override
   public void onCreate() {
+    mOptionsReceiver = new OptionsReceiver();
     mLocationIntent = new Intent(MessageType.LOCATION);
     mErrorIntent = new Intent(MessageType.ERROR);
+
+    getApplicationContext()
+      .registerReceiver(mOptionsReceiver, new IntentFilter(MessageType.SETTINGS));
 
     mGoogleApiClient = new GoogleApiClient
       .Builder(getApplicationContext())
@@ -73,10 +95,7 @@ public class BackgroundLocationService extends Service implements
 
   @Override
   public void onConnected(@Nullable Bundle bundle) {
-    mLocationRequest = new LocationRequest()
-      .setPriority(PriorityLevel.BALANCED)
-      .setFastestInterval(1000)
-      .setInterval(1000);
+    if (mLocationRequest == null) return;
 
     LocationSettingsRequest settingsRequest = new LocationSettingsRequest.Builder()
       .addLocationRequest(mLocationRequest)
@@ -142,5 +161,13 @@ public class BackgroundLocationService extends Service implements
     mErrorIntent.putExtra("code", code);
     mErrorIntent.putExtra("message", message);
     sendBroadcast(mErrorIntent);
+  }
+
+  private class OptionsReceiver extends BroadcastReceiver {
+
+    @Override
+    public void onReceive(Context context, Intent intent) {
+      int accuracy = intent.getIntExtra("accuracy", PriorityLevel.HIGH_ACCURACY);
+    }
   }
 }
