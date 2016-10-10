@@ -48,40 +48,16 @@ public class BackgroundLocationService extends Service implements
     return START_STICKY;
   }
 
-  private void setOptions(Bundle options) {
-    if (mLocationRequest == null)
-      mLocationRequest = new LocationRequest();
-
-    // TODO: fallback on default params
-    mLocationRequest.setPriority(options.getInt("accuracy", PriorityLevel.BALANCED));
-    mLocationRequest.setFastestInterval(1000);
-    mLocationRequest.setInterval(1000);
-  }
-
   @Override
   public void onCreate() {
     registerOptionListener();
-
-    mGoogleApiClient = new GoogleApiClient
-      .Builder(getApplicationContext())
-      .addApi(LocationServices.API)
-      .addConnectionCallbacks(this)
-      .addOnConnectionFailedListener(this)
-      .build();
-
-    mGoogleApiClient.connect();
+    createGoogleApiClient();
   }
 
   @Override
   public void onDestroy() {
-    if (mGoogleApiClient == null) return;
-
-    mGoogleApiClient.unregisterConnectionFailedListener(this);
-    mGoogleApiClient.unregisterConnectionCallbacks(this);
     unregisterOptionListener();
-    stopLocationUpdates();
-    mGoogleApiClient.disconnect();
-    mGoogleApiClient = null;
+    destroyGoogleApiClient();
   }
 
   @Override
@@ -127,16 +103,45 @@ public class BackgroundLocationService extends Service implements
     sendLocation(location);
   }
 
+  private void setOptions(Bundle options) {
+    if (mLocationRequest == null)
+      mLocationRequest = new LocationRequest();
+
+    // TODO: fallback on default params
+    mLocationRequest.setPriority(options.getInt("accuracy", PriorityLevel.BALANCED));
+    mLocationRequest.setFastestInterval(1000);
+    mLocationRequest.setInterval(1000);
+  }
+
+  private void createGoogleApiClient() {
+    mGoogleApiClient = new GoogleApiClient
+      .Builder(getApplicationContext())
+      .addApi(LocationServices.API)
+      .addConnectionCallbacks(this)
+      .addOnConnectionFailedListener(this)
+      .build();
+
+    mGoogleApiClient.connect();
+  }
+
+  private void destroyGoogleApiClient() {
+    if (mGoogleApiClient == null) return;
+
+    mGoogleApiClient.unregisterConnectionCallbacks(this);
+    mGoogleApiClient.unregisterConnectionFailedListener(this);
+    stopLocationUpdates();
+    mGoogleApiClient.disconnect();
+    mGoogleApiClient = null;
+  }
+
   private void startLocationUpdates() {
     if (mGoogleApiClient == null || mLocationRequest == null) return;
-
     LocationServices.FusedLocationApi
       .requestLocationUpdates(mGoogleApiClient, mLocationRequest, this);
   }
 
   private void stopLocationUpdates() {
     if (mGoogleApiClient == null || !mGoogleApiClient.isConnected()) return;
-
     LocationServices.FusedLocationApi
       .removeLocationUpdates(mGoogleApiClient, this);
   }
@@ -148,7 +153,7 @@ public class BackgroundLocationService extends Service implements
     getApplicationContext().registerReceiver(
       mOptionsReceiver,
       new IntentFilter(MessageType.SETTINGS
-      ));
+    ));
   }
 
   private void unregisterOptionListener() {
