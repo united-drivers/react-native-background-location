@@ -6,9 +6,9 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.IntentSender.SendIntentException;
+import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
-import android.util.Log;
 
 import com.facebook.react.bridge.ActivityEventListener;
 import com.facebook.react.bridge.Arguments;
@@ -29,7 +29,6 @@ import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.location.LocationSettingsRequest;
 import com.google.android.gms.location.LocationSettingsResult;
 import com.google.android.gms.location.LocationSettingsStatusCodes;
-import com.unitedd.location.constant.Application;
 import com.unitedd.location.constant.EventType;
 import com.unitedd.location.constant.MessageType;
 import com.unitedd.location.constant.PriorityLevel;
@@ -37,6 +36,7 @@ import com.unitedd.location.constant.RequestCode;
 
 @ReactModule(name = "BackgroundLocation")
 public class BackgroundLocationModule extends ReactContextBaseJavaModule implements
+  GoogleApiClient.ConnectionCallbacks,
   GoogleApiClient.OnConnectionFailedListener,
   ResultCallback<LocationSettingsResult>,
   ActivityEventListener {
@@ -85,18 +85,6 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
     mStartPromise = promise;
     mLocationOptions = LocationOptions.fromReactMap(options);
     createGoogleApiClient(activity);
-
-    if (mLocationOptions != null) {
-      // checkSettings onConnected, not before
-      LocationSettingsRequest settingsRequest = new LocationSettingsRequest.Builder()
-        .setAlwaysShow(true)
-        .addLocationRequest(new LocationRequest().setPriority(mLocationOptions.accuracy))
-        .build();
-
-      LocationServices.SettingsApi
-        .checkLocationSettings(mGoogleApiClient, settingsRequest)
-        .setResultCallback(this);
-    }
   }
 
   @ReactMethod
@@ -105,7 +93,27 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
   }
 
   @Override
-  public void onNewIntent(Intent intent) { }
+  public void onConnected(@Nullable Bundle bundle) {
+    if (mLocationOptions == null) return;
+
+    LocationRequest locationRequest = new LocationRequest()
+      .setPriority(mLocationOptions.accuracy);
+
+    LocationSettingsRequest settingsRequest = new LocationSettingsRequest.Builder()
+      .setAlwaysShow(true)
+      .addLocationRequest(locationRequest)
+      .build();
+
+    LocationServices.SettingsApi
+      .checkLocationSettings(mGoogleApiClient, settingsRequest)
+      .setResultCallback(this);
+  }
+
+  @Override
+  public void onConnectionSuspended(int i) {
+    if (mGoogleApiClient != null)
+      mGoogleApiClient.connect();
+  }
 
   @Override
   public void onConnectionFailed(@NonNull ConnectionResult result) {
@@ -144,6 +152,9 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
   }
 
   @Override
+  public void onNewIntent(Intent intent) { }
+
+  @Override
   public void onActivityResult(Activity activity, int requestCode, int resultCode, Intent data) {
     switch (requestCode) {
       case RequestCode.SETTINGS_API:
@@ -167,6 +178,7 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
     mGoogleApiClient = new GoogleApiClient
       .Builder(currentActivity)
       .addApi(LocationServices.API)
+      .addConnectionCallbacks(this)
       .addOnConnectionFailedListener(this)
       .build();
 
@@ -176,6 +188,7 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
   private void destroyGoogleApiClient() {
     if (mGoogleApiClient == null) return;
 
+    mGoogleApiClient.unregisterConnectionCallbacks(this);
     mGoogleApiClient.unregisterConnectionFailedListener(this);
     mGoogleApiClient.disconnect();
     mGoogleApiClient = null;
