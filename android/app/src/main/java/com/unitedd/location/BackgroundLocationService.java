@@ -162,16 +162,6 @@ public class BackgroundLocationService extends Service implements
     mOptionsReceiver = null;
   }
 
-  private class OptionsReceiver extends BroadcastReceiver {
-
-    @Override
-    public void onReceive(Context context, Intent intent) {
-      //stopLocationUpdates();
-      //setOptions(intent.getExtras());
-      //startLocationUpdates();
-    }
-  }
-
   private void sendLocation(Location location) {
     if (mLocationIntent == null)
       mLocationIntent = new Intent(MessageType.LOCATION);
@@ -199,5 +189,16 @@ public class BackgroundLocationService extends Service implements
     mErrorIntent.putExtra("message", message);
 
     sendBroadcast(mErrorIntent);
+  }
+
+
+  private class OptionsReceiver extends BroadcastReceiver {
+
+    @Override
+    public void onReceive(Context context, Intent intent) {
+      stopLocationUpdates();
+      setOptions(intent.getExtras());
+      startLocationUpdates();
+    }
   }
 }
