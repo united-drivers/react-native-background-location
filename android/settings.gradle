@@ -1,0 +1,3 @@
+rootProject.name = 'BackgroundGeolocation'
+
+include ':app'
