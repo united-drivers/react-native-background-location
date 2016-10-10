@@ -8,6 +8,7 @@ import android.content.IntentFilter;
 import android.content.IntentSender.SendIntentException;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.util.Log;
 
 import com.facebook.react.bridge.ActivityEventListener;
 import com.facebook.react.bridge.Arguments;
@@ -28,6 +29,7 @@ import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.location.LocationSettingsRequest;
 import com.google.android.gms.location.LocationSettingsResult;
 import com.google.android.gms.location.LocationSettingsStatusCodes;
+import com.unitedd.location.constant.Application;
 import com.unitedd.location.constant.EventType;
 import com.unitedd.location.constant.MessageType;
 import com.unitedd.location.constant.PriorityLevel;
@@ -85,6 +87,7 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
     createGoogleApiClient(activity);
 
     if (mLocationOptions != null) {
+      // checkSettings onConnected, not before
       LocationSettingsRequest settingsRequest = new LocationSettingsRequest.Builder()
         .setAlwaysShow(true)
         .addLocationRequest(new LocationRequest().setPriority(mLocationOptions.accuracy))

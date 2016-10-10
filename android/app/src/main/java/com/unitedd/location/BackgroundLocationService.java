@@ -21,6 +21,7 @@ import com.google.android.gms.location.LocationSettingsResult;
 import com.google.android.gms.location.LocationSettingsStatusCodes;
 import com.unitedd.location.constant.Application;
 import com.unitedd.location.constant.MessageType;
+import com.unitedd.location.constant.PriorityLevel;
 
 public class BackgroundLocationService extends Service implements
   LocationListener,
@@ -30,13 +31,8 @@ public class BackgroundLocationService extends Service implements
 
   private @Nullable GoogleApiClient mGoogleApiClient;
   private @Nullable LocationRequest mLocationRequest;
-  private Intent mLocationIntent;
-  private Intent mErrorIntent;
-
-  public BackgroundLocationService() {
-    mLocationIntent = new Intent(MessageType.LOCATION);
-    mErrorIntent = new Intent(MessageType.ERROR);
-  }
+  private @Nullable Intent mLocationIntent;
+  private @Nullable Intent mErrorIntent;
 
   @Nullable
   @Override
@@ -46,6 +42,9 @@ public class BackgroundLocationService extends Service implements
 
   @Override
   public void onCreate() {
+    mLocationIntent = new Intent(MessageType.LOCATION);
+    mErrorIntent = new Intent(MessageType.ERROR);
+
     mGoogleApiClient = new GoogleApiClient
       .Builder(getApplicationContext())
       .addApi(LocationServices.API)
@@ -74,10 +73,8 @@ public class BackgroundLocationService extends Service implements
 
   @Override
   public void onConnected(@Nullable Bundle bundle) {
-    Log.e(Application.TAG, "it is connected");
-
     mLocationRequest = new LocationRequest()
-      .setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY)
+      .setPriority(PriorityLevel.BALANCED)
       .setFastestInterval(1000)
       .setInterval(1000);
 
@@ -117,7 +114,7 @@ public class BackgroundLocationService extends Service implements
 
   @Override
   public void onLocationChanged(Location location) {
-    Log.e(Application.TAG, "Location has changed");
+    if (mLocationIntent == null) return;
 
     mLocationIntent.putExtra("latitude", location.getLatitude());
     mLocationIntent.putExtra("longitude", location.getLongitude());
@@ -140,9 +137,10 @@ public class BackgroundLocationService extends Service implements
   }
 
   private void sendError(int code, String message) {
+    if (mErrorIntent == null) return;
+
     mErrorIntent.putExtra("code", code);
     mErrorIntent.putExtra("message", message);
-
     sendBroadcast(mErrorIntent);
   }
 }

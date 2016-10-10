@@ -8,7 +8,10 @@ import {
 } from 'react-native'
 
 import Geolocation from './module'
+
+import NativeEventEmitter from 'NativeEventEmitter'
 import { BackgroundLocation } from 'NativeModules'
+const BackgroundLocationEventEmitter = new NativeEventEmitter(BackgroundLocation)
 
 class BackgroundGeolocation extends Component {
   componentDidMount() {
@@ -17,15 +20,15 @@ class BackgroundGeolocation extends Component {
       .then(success => {})
       .catch(error => {})
 
-    Geolocation.stop();
+    Geolocation.stop();*/
 
-    Geolocation.on('location', location => {
-
+    BackgroundLocationEventEmitter.addListener('location', location => {
+      console.log(location);
     })
 
-    Geolocation.on('error', error => {
-
-    })*/
+    BackgroundLocationEventEmitter.addListener('error', error => {
+      console.warn(error);
+    })
 
     BackgroundLocation
       .startObserving({})
