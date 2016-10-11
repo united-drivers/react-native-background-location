@@ -62,15 +62,7 @@ public class BackgroundLocationService extends Service implements
 
   @Override
   public void onConnected(@Nullable Bundle bundle) {
-    if (mLocationRequest == null) return;
-
-    LocationSettingsRequest settingsRequest = new LocationSettingsRequest.Builder()
-      .addLocationRequest(mLocationRequest)
-      .build();
-
-    LocationServices.SettingsApi
-      .checkLocationSettings(mGoogleApiClient, settingsRequest)
-      .setResultCallback(this);
+    askForSettings();
   }
 
   @Override
@@ -111,6 +103,18 @@ public class BackgroundLocationService extends Service implements
     mLocationRequest.setPriority(options.getInt("accuracy", PriorityLevel.BALANCED));
     mLocationRequest.setFastestInterval(1000);
     mLocationRequest.setInterval(1000);
+  }
+
+  private void askForSettings() {
+    if (mLocationRequest == null) return;
+
+    LocationSettingsRequest settingsRequest = new LocationSettingsRequest.Builder()
+      .addLocationRequest(mLocationRequest)
+      .build();
+
+    LocationServices.SettingsApi
+      .checkLocationSettings(mGoogleApiClient, settingsRequest)
+      .setResultCallback(this);
   }
 
   private void createGoogleApiClient() {
