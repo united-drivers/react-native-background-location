@@ -231,16 +231,19 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
 
     @Override
     public void onReceive(Context context, Intent intent) {
-      WritableMap map = Arguments.createMap();
-
-      map.putInt("code", intent.getIntExtra("code", 0));
-      String message = intent.getStringExtra("message");
-      if (message != null) map.putString("message", message);
-
-      getReactApplicationContext()
-        .getJSModule(RCTDeviceEventEmitter.class)
-        .emit(EventType.ERROR, map);
+      Bundle error = intent.getExtras();
+      emitError(error.getInt("code"), error.getString("message"));
     }
+  }
+
+  private void emitError(int code, @Nullable String message) {
+    WritableMap map = Arguments.createMap();
+    map.putInt("code", code);
+    if (message != null) map.putString("message", message);
+
+    getReactApplicationContext()
+      .getJSModule(RCTDeviceEventEmitter.class)
+      .emit(EventType.ERROR, map);
   }
 
   private class LocationReceiver extends BroadcastReceiver {
@@ -248,19 +251,21 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
     @Override
     public void onReceive(Context context, Intent intent) {
       long now = System.currentTimeMillis();
+      Bundle point = intent.getExtras();
+
       WritableMap coords = Arguments.createMap();
       WritableMap map = Arguments.createMap();
 
-      coords.putDouble("latitude", intent.getDoubleExtra("latitude", 0));
-      coords.putDouble("longitude", intent.getDoubleExtra("longitude", 0));
-      coords.putDouble("altitude", intent.getDoubleExtra("altitude", 0));
-      coords.putDouble("accuracy", intent.getDoubleExtra("accuracy", 0));
-      coords.putDouble("speed", intent.getDoubleExtra("speed", 0));
-      coords.putDouble("heading", intent.getDoubleExtra("heading", 0));
+      coords.putDouble("latitude", point.getDouble("latitude", 0));
+      coords.putDouble("longitude", point.getDouble("longitude", 0));
+      coords.putDouble("altitude", point.getDouble("altitude", 0));
+      coords.putDouble("accuracy", point.getDouble("accuracy", 0));
+      coords.putDouble("speed", point.getDouble("speed", 0));
+      coords.putDouble("heading", point.getDouble("heading", 0));
 
       map.putMap("coords", coords);
-      map.putBoolean("mocked", intent.getBooleanExtra("mocked", false));
-      map.putDouble("timestamp", intent.getDoubleExtra("timestamp", now));
+      map.putBoolean("mocked", point.getBoolean("mocked", false));
+      map.putDouble("timestamp", point.getDouble("timestamp", now));
 
       getReactApplicationContext()
         .getJSModule(RCTDeviceEventEmitter.class)
