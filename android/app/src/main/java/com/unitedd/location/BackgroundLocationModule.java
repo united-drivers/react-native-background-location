@@ -231,16 +231,19 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
 
     @Override
     public void onReceive(Context context, Intent intent) {
-      WritableMap map = Arguments.createMap();
-
-      map.putInt("code", intent.getIntExtra("code", 0));
-      String message = intent.getStringExtra("message");
-      if (message != null) map.putString("message", message);
-
-      getReactApplicationContext()
-        .getJSModule(RCTDeviceEventEmitter.class)
-        .emit(EventType.ERROR, map);
+      Bundle error = intent.getExtras();
+      emitError(error.getInt("code"), error.getString("message"));
     }
+  }
+
+  private void emitError(int code, @Nullable String message) {
+    WritableMap map = Arguments.createMap();
+    map.putInt("code", code);
+    if (message != null) map.putString("message", message);
+
+    getReactApplicationContext()
+      .getJSModule(RCTDeviceEventEmitter.class)
+      .emit(EventType.ERROR, map);
   }
 
   private class LocationReceiver extends BroadcastReceiver {

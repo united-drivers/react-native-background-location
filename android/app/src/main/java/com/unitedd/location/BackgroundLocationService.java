@@ -189,12 +189,12 @@ public class BackgroundLocationService extends Service implements
     if (mErrorIntent == null)
       mErrorIntent = new Intent(MessageType.ERROR);
 
-    mErrorIntent.putExtra("code", code);
-    mErrorIntent.putExtra("message", message);
-
+    Bundle error = new Bundle();
+    error.putInt("code", code);
+    error.putString("message", message);
+    mErrorIntent.putExtras(error);
     sendBroadcast(mErrorIntent);
   }
-
 
   private class OptionsReceiver extends BroadcastReceiver {
 
