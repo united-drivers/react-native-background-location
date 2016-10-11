@@ -31,6 +31,7 @@ import com.google.android.gms.location.LocationSettingsRequest;
 import com.google.android.gms.location.LocationSettingsResult;
 import com.google.android.gms.location.LocationSettingsStatusCodes;
 import com.unitedd.location.constant.DefaultOption;
+import com.unitedd.location.constant.EventType;
 import com.unitedd.location.constant.MessageType;
 import com.unitedd.location.constant.PriorityLevel;
 import com.unitedd.location.constant.RequestCode;
@@ -240,7 +241,7 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
     @Override
     public void onReceive(Context context, Intent intent) {
       Bundle error = intent.getExtras();
-      emitError(error.getInt("code"), error.getString("message"));
+      emitError(error.getInt("code", 0), error.getString("message"));
     }
   }
 
@@ -251,7 +252,7 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
 
     getReactApplicationContext()
       .getJSModule(RCTDeviceEventEmitter.class)
-      .emit(MessageType.ERROR, map);
+      .emit(EventType.ERROR, map);
   }
 
   private class LocationReceiver extends BroadcastReceiver {
@@ -277,7 +278,7 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
 
       getReactApplicationContext()
         .getJSModule(RCTDeviceEventEmitter.class)
-        .emit(MessageType.LOCATION, map);
+        .emit(EventType.LOCATION, map);
     }
   }
 

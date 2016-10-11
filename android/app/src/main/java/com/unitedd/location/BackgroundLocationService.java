@@ -22,6 +22,7 @@ import com.google.android.gms.location.LocationSettingsRequest;
 import com.google.android.gms.location.LocationSettingsResult;
 import com.google.android.gms.location.LocationSettingsStatusCodes;
 import com.unitedd.location.constant.DefaultOption;
+import com.unitedd.location.constant.ErrorType;
 import com.unitedd.location.constant.MessageType;
 
 public class BackgroundLocationService extends Service implements
@@ -73,7 +74,10 @@ public class BackgroundLocationService extends Service implements
 
   @Override
   public void onConnectionFailed(@NonNull ConnectionResult result) {
-    sendError(0, "Connection to Google Play Services failed");
+    sendError(
+      ErrorType.PLAY_CONNECTION_FAILED,
+      "Service connection to Google Play Services failed"
+    );
   }
 
   @Override
@@ -85,7 +89,11 @@ public class BackgroundLocationService extends Service implements
         startLocationUpdates();
         break;
       case LocationSettingsStatusCodes.RESOLUTION_REQUIRED:
-        sendError(0, "Resolution required");
+        sendError(
+          ErrorType.PLAY_RESOLUTION_REQUIRED,
+          "Service requires a resolution for Settings API"
+        );
+
         break;
     }
   }
@@ -142,7 +150,6 @@ public class BackgroundLocationService extends Service implements
   }
 
   private void startLocationUpdates() {
-    if (mGoogleApiClient == null || mLocationRequest == null) return;
     LocationServices.FusedLocationApi
       .requestLocationUpdates(mGoogleApiClient, mLocationRequest, this);
   }
