@@ -3,6 +3,7 @@ import {
   StyleSheet,
   Text,
   TouchableWithoutFeedback,
+  PermissionsAndroid,
   View,
   Alert,
 } from 'react-native'
@@ -13,15 +14,18 @@ import NativeEventEmitter from 'NativeEventEmitter'
 import { BackgroundLocation } from 'NativeModules'
 const BackgroundLocationEventEmitter = new NativeEventEmitter(BackgroundLocation)
 
+async function checkPermissions() {
+  const {requestPermission, PERMISSIONS} = PermissionsAndroid
+
+  try {
+    return await requestPermission(PERMISSIONS.ACCESS_FINE_LOCATION)
+  } catch (e) {
+    Promise.reject(e.message)
+  }
+}
+
 class BackgroundGeolocation extends Component {
   componentDidMount() {
-    /*Geolocation
-      .start(options = {})
-      .then(success => {})
-      .catch(error => {})
-
-    Geolocation.stop();*/
-
     BackgroundLocationEventEmitter.addListener('location', location => {
       console.log(location);
     })
@@ -30,21 +34,17 @@ class BackgroundGeolocation extends Component {
       console.warn(error);
     })
 
-    BackgroundLocation
-      .startObserving({
-        accuracy: BackgroundLocation.priority.HIGH_ACCURACY
+    checkPermissions()
+      .then(granted => {
+        if (granted) {
+          BackgroundLocation
+            .startObserving({
+              accuracy: BackgroundLocation.priority.HIGH_ACCURACY
+            })
+            .then(l => console.log(l))
+            .catch(e => console.warn(e))
+        }
       })
-      .then(e => console.log(e))
-      .catch(e => console.warn(e))
-
-    Geolocation.watchPosition(
-      position => {
-        console.log(position)
-      },
-      error => {
-        console.warn(error)
-      },
-    )
   }
 
   render() {
