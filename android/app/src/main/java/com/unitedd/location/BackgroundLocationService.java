@@ -21,8 +21,8 @@ import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.location.LocationSettingsRequest;
 import com.google.android.gms.location.LocationSettingsResult;
 import com.google.android.gms.location.LocationSettingsStatusCodes;
+import com.unitedd.location.constant.DefaultOption;
 import com.unitedd.location.constant.MessageType;
-import com.unitedd.location.constant.PriorityLevel;
 
 public class BackgroundLocationService extends Service implements
   LocationListener,
@@ -99,10 +99,13 @@ public class BackgroundLocationService extends Service implements
     if (mLocationRequest == null)
       mLocationRequest = new LocationRequest();
 
-    // TODO: fallback on default params
-    mLocationRequest.setPriority(options.getInt("accuracy", PriorityLevel.BALANCED));
-    mLocationRequest.setFastestInterval(1000);
-    mLocationRequest.setInterval(1000);
+    int accuracy = options.getInt("accuracy", DefaultOption.accuracy);
+    long fastestInterval = options.getLong("fastestInterval", DefaultOption.fastestInterval);
+    long interval = options.getLong("interval", DefaultOption.interval);
+
+    mLocationRequest.setPriority(accuracy);
+    mLocationRequest.setFastestInterval(fastestInterval);
+    mLocationRequest.setInterval(interval);
   }
 
   private void askForSettings() {

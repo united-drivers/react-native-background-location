@@ -18,6 +18,7 @@ import com.facebook.react.bridge.ReactContextBaseJavaModule;
 import com.facebook.react.bridge.ReactMethod;
 import com.facebook.react.bridge.ReadableMap;
 import com.facebook.react.bridge.WritableMap;
+import com.facebook.react.common.MapBuilder;
 import com.facebook.react.module.annotations.ReactModule;
 import com.facebook.react.modules.core.DeviceEventManagerModule.RCTDeviceEventEmitter;
 import com.google.android.gms.common.ConnectionResult;
@@ -29,10 +30,12 @@ import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.location.LocationSettingsRequest;
 import com.google.android.gms.location.LocationSettingsResult;
 import com.google.android.gms.location.LocationSettingsStatusCodes;
-import com.unitedd.location.constant.EventType;
+import com.unitedd.location.constant.DefaultOption;
 import com.unitedd.location.constant.MessageType;
 import com.unitedd.location.constant.PriorityLevel;
 import com.unitedd.location.constant.RequestCode;
+
+import java.util.Map;
 
 @ReactModule(name = "BackgroundLocation")
 public class BackgroundLocationModule extends ReactContextBaseJavaModule implements
@@ -54,6 +57,7 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
   public BackgroundLocationModule(ReactApplicationContext reactContext) {
     super(reactContext);
     reactContext.addActivityEventListener(this);
+    // TODO: Move this is a promise
     mOptionsIntent = new Intent(MessageType.SETTINGS);
   }
 
@@ -62,17 +66,20 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
     return "BackgroundLocation";
   }
 
-  /*@Override
+  @Override
   public Map<String, Object> getConstants() {
     final Map<String, Object> constants = MapBuilder.newHashMap();
 
-    constants.put("HIGH_ACCURACY", HIGH_ACCURACY);
-    constants.put("BALANCED", BALANCED);
-    constants.put("LOW_POWER", LOW_POWER);
-    constants.put("NO_POWER", NO_POWER);
+    WritableMap priority = Arguments.createMap();
+    priority.putInt("HIGH_ACCURACY", PriorityLevel.HIGH_ACCURACY);
+    priority.putInt("BALANCED", PriorityLevel.BALANCED);
+    priority.putInt("LOW_POWER", PriorityLevel.LOW_POWER);
+    priority.putInt("NO_POWER", PriorityLevel.NO_POWER);
+
+    constants.put("priority", priority);
 
     return constants;
-  }*/
+  }
 
   @ReactMethod
   public void startObserving(ReadableMap options, final Promise promise) {
@@ -241,9 +248,10 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
     map.putInt("code", code);
     if (message != null) map.putString("message", message);
 
-    getReactApplicationContext()
-      .getJSModule(RCTDeviceEventEmitter.class)
-      .emit(EventType.ERROR, map);
+      getReactApplicationContext()
+        .getJSModule(RCTDeviceEventEmitter.class)
+        .emit(MessageType.ERROR, map);
+    }
   }
 
   private class LocationReceiver extends BroadcastReceiver {
@@ -269,7 +277,7 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
 
       getReactApplicationContext()
         .getJSModule(RCTDeviceEventEmitter.class)
-        .emit(EventType.LOCATION, map);
+        .emit(MessageType.LOCATION, map);
     }
   }
 
@@ -303,7 +311,7 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
 
       int accuracy = map.hasKey("accuracy")
         ? map.getInt("accuracy")
-        : PriorityLevel.BALANCED;
+        : DefaultOption.accuracy;
 
       float distanceFilter = map.hasKey("distanceFilter")
         ? (float) map.getDouble("distanceFilter")
