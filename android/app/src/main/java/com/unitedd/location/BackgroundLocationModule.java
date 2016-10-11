@@ -53,6 +53,7 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
   public BackgroundLocationModule(ReactApplicationContext reactContext) {
     super(reactContext);
     reactContext.addActivityEventListener(this);
+    // TODO: Move this is a promise
     mOptionsIntent = new Intent(MessageType.SETTINGS);
   }
 
