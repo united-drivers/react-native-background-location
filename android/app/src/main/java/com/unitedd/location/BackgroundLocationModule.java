@@ -240,7 +240,7 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
     @Override
     public void onReceive(Context context, Intent intent) {
       Bundle error = intent.getExtras();
-      emitError(error.getInt("code"), error.getString("message"));
+      emitError(error.getInt("code", 0), error.getString("message"));
     }
   }
 
