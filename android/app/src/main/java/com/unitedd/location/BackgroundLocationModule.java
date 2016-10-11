@@ -29,7 +29,6 @@ import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.location.LocationSettingsRequest;
 import com.google.android.gms.location.LocationSettingsResult;
 import com.google.android.gms.location.LocationSettingsStatusCodes;
-import com.unitedd.location.constant.EventType;
 import com.unitedd.location.constant.MessageType;
 import com.unitedd.location.constant.PriorityLevel;
 import com.unitedd.location.constant.RequestCode;
@@ -239,7 +238,7 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
 
       getReactApplicationContext()
         .getJSModule(RCTDeviceEventEmitter.class)
-        .emit(EventType.ERROR, map);
+        .emit(MessageType.ERROR, map);
     }
   }
 
@@ -264,7 +263,7 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
 
       getReactApplicationContext()
         .getJSModule(RCTDeviceEventEmitter.class)
-        .emit(EventType.LOCATION, map);
+        .emit(MessageType.LOCATION, map);
     }
   }
 
