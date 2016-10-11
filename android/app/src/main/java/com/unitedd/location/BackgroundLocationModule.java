@@ -29,8 +29,8 @@ import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.location.LocationSettingsRequest;
 import com.google.android.gms.location.LocationSettingsResult;
 import com.google.android.gms.location.LocationSettingsStatusCodes;
+import com.unitedd.location.constant.DefaultOption;
 import com.unitedd.location.constant.MessageType;
-import com.unitedd.location.constant.PriorityLevel;
 import com.unitedd.location.constant.RequestCode;
 
 @ReactModule(name = "BackgroundLocation")
@@ -297,7 +297,7 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
 
       int accuracy = map.hasKey("accuracy")
         ? map.getInt("accuracy")
-        : PriorityLevel.BALANCED;
+        : DefaultOption.accuracy;
 
       float distanceFilter = map.hasKey("distanceFilter")
         ? (float) map.getDouble("distanceFilter")
