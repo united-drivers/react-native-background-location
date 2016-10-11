@@ -170,18 +170,19 @@ public class BackgroundLocationService extends Service implements
     if (mLocationIntent == null)
       mLocationIntent = new Intent(MessageType.LOCATION);
 
-    mLocationIntent.putExtra("latitude", location.getLatitude());
-    mLocationIntent.putExtra("longitude", location.getLongitude());
-    mLocationIntent.putExtra("altitude", location.getAltitude());
-    mLocationIntent.putExtra("accuracy", location.getAccuracy());
-    mLocationIntent.putExtra("heading", location.getBearing());
-    mLocationIntent.putExtra("speed", location.getSpeed());
-    mLocationIntent.putExtra("timestamp", location.getTime());
+    Bundle point = new Bundle();
+    point.putDouble("latitude", location.getLatitude());
+    point.putDouble("longitude", location.getLongitude());
+    point.putDouble("altitude", location.getAltitude());
+    point.putDouble("accuracy", location.getAccuracy());
+    point.putDouble("heading", location.getBearing());
+    point.putDouble("speed", location.getSpeed());
+    point.putDouble("timestamp", location.getTime());
 
-    if (android.os.Build.VERSION.SDK_INT >= 18) {
-      mLocationIntent.putExtra("mocked", location.isFromMockProvider());
-    }
+    if (android.os.Build.VERSION.SDK_INT >= 18)
+      point.putBoolean("mocked", location.isFromMockProvider());
 
+    mLocationIntent.putExtras(point);
     sendBroadcast(mLocationIntent);
   }
 
@@ -192,6 +193,7 @@ public class BackgroundLocationService extends Service implements
     Bundle error = new Bundle();
     error.putInt("code", code);
     error.putString("message", message);
+
     mErrorIntent.putExtras(error);
     sendBroadcast(mErrorIntent);
   }
