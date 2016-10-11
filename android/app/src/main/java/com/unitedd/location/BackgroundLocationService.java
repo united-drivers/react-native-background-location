@@ -107,10 +107,13 @@ public class BackgroundLocationService extends Service implements
     if (mLocationRequest == null)
       mLocationRequest = new LocationRequest();
 
-    // TODO: fallback on default params
-    mLocationRequest.setPriority(options.getInt("accuracy", DefaultOption.accuracy));
-    mLocationRequest.setFastestInterval(1000);
-    mLocationRequest.setInterval(1000);
+    int accuracy = options.getInt("accuracy", DefaultOption.accuracy);
+    long fastestInterval = options.getLong("fastestInterval", DefaultOption.fastestInterval);
+    long interval = options.getLong("interval", DefaultOption.interval);
+
+    mLocationRequest.setPriority(accuracy);
+    mLocationRequest.setFastestInterval(fastestInterval);
+    mLocationRequest.setInterval(interval);
   }
 
   private void createGoogleApiClient() {
