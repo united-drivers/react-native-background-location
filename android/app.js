@@ -39,7 +39,7 @@ class BackgroundGeolocation extends Component {
         if (granted) {
           BackgroundLocation
             .startObserving({
-              accuracy: BackgroundLocation.priority.HIGH_ACCURACY
+              accuracy: BackgroundLocation.PriorityLevels.HIGH_ACCURACY
             })
             .then(l => console.log(l))
             .catch(e => console.warn(e))

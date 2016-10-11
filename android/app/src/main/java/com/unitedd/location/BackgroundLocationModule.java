@@ -70,13 +70,14 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
   public Map<String, Object> getConstants() {
     final Map<String, Object> constants = MapBuilder.newHashMap();
 
-    WritableMap priority = Arguments.createMap();
-    priority.putInt("HIGH_ACCURACY", PriorityLevel.HIGH_ACCURACY);
-    priority.putInt("BALANCED", PriorityLevel.BALANCED);
-    priority.putInt("LOW_POWER", PriorityLevel.LOW_POWER);
-    priority.putInt("NO_POWER", PriorityLevel.NO_POWER);
+    WritableMap priorityLevels = Arguments.createMap();
 
-    constants.put("priority", priority);
+    priorityLevels.putInt("HIGH_ACCURACY", PriorityLevel.HIGH_ACCURACY);
+    priorityLevels.putInt("BALANCED", PriorityLevel.BALANCED);
+    priorityLevels.putInt("LOW_POWER", PriorityLevel.LOW_POWER);
+    priorityLevels.putInt("NO_POWER", PriorityLevel.NO_POWER);
+
+    constants.put("PriorityLevels", priorityLevels);
 
     return constants;
   }
