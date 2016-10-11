@@ -248,10 +248,9 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
     map.putInt("code", code);
     if (message != null) map.putString("message", message);
 
-      getReactApplicationContext()
-        .getJSModule(RCTDeviceEventEmitter.class)
-        .emit(MessageType.ERROR, map);
-    }
+    getReactApplicationContext()
+      .getJSModule(RCTDeviceEventEmitter.class)
+      .emit(MessageType.ERROR, map);
   }
 
   private class LocationReceiver extends BroadcastReceiver {
