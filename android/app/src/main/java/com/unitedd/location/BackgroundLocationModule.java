@@ -1,18 +1,24 @@
 package com.unitedd.location;
 
+import android.Manifest;
 import android.app.Activity;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.IntentSender.SendIntentException;
+import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.content.LocalBroadcastManager;
+import android.util.Log;
+import android.util.SparseArray;
 
 import com.facebook.react.bridge.ActivityEventListener;
 import com.facebook.react.bridge.Arguments;
+import com.facebook.react.bridge.Callback;
 import com.facebook.react.bridge.Promise;
 import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.bridge.ReactContextBaseJavaModule;
@@ -22,6 +28,8 @@ import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.common.MapBuilder;
 import com.facebook.react.module.annotations.ReactModule;
 import com.facebook.react.modules.core.DeviceEventManagerModule.RCTDeviceEventEmitter;
+import com.facebook.react.modules.core.PermissionAwareActivity;
+import com.facebook.react.modules.core.PermissionListener;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.common.api.ResultCallback;
@@ -31,6 +39,7 @@ import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.location.LocationSettingsRequest;
 import com.google.android.gms.location.LocationSettingsResult;
 import com.google.android.gms.location.LocationSettingsStatusCodes;
+import com.unitedd.location.constant.Application;
 import com.unitedd.location.constant.DefaultOption;
 import com.unitedd.location.constant.EventType;
 import com.unitedd.location.constant.MessageType;
@@ -44,10 +53,12 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
   GoogleApiClient.ConnectionCallbacks,
   GoogleApiClient.OnConnectionFailedListener,
   ResultCallback<LocationSettingsResult>,
-  ActivityEventListener {
+  ActivityEventListener,
+  PermissionListener {
 
   private static final float RCT_DEFAULT_LOCATION_ACCURACY = 100;
 
+  private final SparseArray<Callback> mCallbacks;
   private @Nullable GoogleApiClient mGoogleApiClient;
   private @Nullable LocationOptions mLocationOptions;
   private @Nullable BroadcastReceiver mMessageReceiver;
@@ -56,6 +67,7 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
 
   public BackgroundLocationModule(ReactApplicationContext reactContext) {
     super(reactContext);
+    mCallbacks = new SparseArray<Callback>();
     reactContext.addActivityEventListener(this);
   }
 
@@ -99,6 +111,7 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
   public void stopObserving() {
     stopBackgroundService();
   }
+
 
   @Override
   public void onConnected(@Nullable Bundle bundle) {
@@ -191,6 +204,8 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
       .build();
 
     mGoogleApiClient.connect();
+    //checkPermission(Manifest.permission.ACCESS_FINE_LOCATION);
+    requestPermission(Manifest.permission.ACCESS_FINE_LOCATION);
   }
 
   private void destroyGoogleApiClient() {
@@ -295,6 +310,7 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
       .emit(EventType.ERROR, map);
   }
 
+
   private static class LocationOptions {
     private final long timeout;
     private final double maximumAge;
@@ -333,6 +349,49 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
 
       return new LocationOptions(timeout, maximumAge, accuracy, distanceFilter);
     }
+  }
+
+  // PERMISSIONS
+
+  public boolean checkPermission(String permission) {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return true;
+    Context context = getReactApplicationContext().getBaseContext();
+    return context.checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED;
+  }
+
+  public void requestPermission(final String permission) {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return;
+    Context context = getReactApplicationContext().getBaseContext();
+    if (context.checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED) return;
+
+    /*mCallbacks.put(
+      mRequestCode, new Callback() {
+        @Override
+        public void invoke(Object... args) {
+          promise.resolve(args[0].equals(PackageManager.PERMISSION_GRANTED));
+        }
+      });*/
+
+    PermissionAwareActivity activity = getPermissionAwareActivity();
+    activity.requestPermissions(new String[]{permission}, RequestCode.RUNTIME_PERMISSION, this);
+  }
+
+  @Override
+  public boolean onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+    Log.e(Application.TAG, "Yeah");
+    return false;
+  }
+
+  private PermissionAwareActivity getPermissionAwareActivity() {
+    Activity activity = getCurrentActivity();
+
+    if (activity == null) {
+      throw new IllegalStateException("Tried to use permissions API while not attached to an Activity.");
+    } else if (!(activity instanceof PermissionAwareActivity)) {
+      throw new IllegalStateException("Tried to use permissions API but the host Activity doesn't implement PermissionAwareActivity.");
+    }
+
+    return (PermissionAwareActivity) activity;
   }
 
 }
