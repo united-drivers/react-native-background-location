@@ -8,6 +8,7 @@ import android.content.IntentFilter;
 import android.location.Location;
 import android.os.Bundle;
 import android.os.IBinder;
+import android.provider.Settings;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 
@@ -189,11 +190,21 @@ public class BackgroundLocationService extends Service implements
     point.putDouble("speed", location.getSpeed());
     point.putDouble("timestamp", location.getTime());
 
-    if (android.os.Build.VERSION.SDK_INT >= 18)
+    if (android.os.Build.VERSION.SDK_INT >= 18) {
       point.putBoolean("mocked", location.isFromMockProvider());
+    } else {
+      boolean isMocked = isMockSettingsOn(getApplicationContext());
+      point.putBoolean("mocked", isMocked);
+    }
 
     mLocationIntent.putExtras(point);
     sendBroadcast(mLocationIntent);
+  }
+
+  public static boolean isMockSettingsOn(Context context) {
+    return !Settings.Secure
+      .getString(context.getContentResolver(), Settings.Secure.ALLOW_MOCK_LOCATION)
+      .equals("0");
   }
 
   private void sendError(int code, String message) {
