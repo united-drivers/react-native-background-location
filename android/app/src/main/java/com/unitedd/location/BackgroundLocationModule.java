@@ -13,9 +13,11 @@ import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.content.LocalBroadcastManager;
+import android.util.Log;
 
 import com.facebook.react.bridge.ActivityEventListener;
 import com.facebook.react.bridge.Arguments;
+import com.facebook.react.bridge.Callback;
 import com.facebook.react.bridge.LifecycleEventListener;
 import com.facebook.react.bridge.Promise;
 import com.facebook.react.bridge.ReactApplicationContext;
@@ -37,6 +39,7 @@ import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.location.LocationSettingsRequest;
 import com.google.android.gms.location.LocationSettingsResult;
 import com.google.android.gms.location.LocationSettingsStatusCodes;
+import com.unitedd.location.constant.Application;
 import com.unitedd.location.constant.DefaultOption;
 import com.unitedd.location.constant.EventType;
 import com.unitedd.location.constant.MessageType;
@@ -76,7 +79,6 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
   @Override
   public Map<String, Object> getConstants() {
     final Map<String, Object> constants = MapBuilder.newHashMap();
-
     WritableMap priorityLevels = Arguments.createMap();
 
     priorityLevels.putInt("HIGH_ACCURACY", PriorityLevel.HIGH_ACCURACY);
@@ -85,7 +87,6 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
     priorityLevels.putInt("NO_POWER", PriorityLevel.NO_POWER);
 
     constants.put("PriorityLevels", priorityLevels);
-
     return constants;
   }
 
@@ -93,14 +94,6 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
   public void startObserving(ReadableMap options, final Promise promise) {
     // TODO: if service is already started, pass the options
     mLocationOptions = LocationOptions.fromReactMap(options);
-
-    // 1) Check permissions
-    // 2) Check settings
-    // 3) Start service
-    // 4) OnResume, recheck Permission
-    // 5) OnDestroy, stop service
-
-    if (mGoogleApiClient != null) return;
     mPromise = promise;
 
     if (!checkPermission(Manifest.permission.ACCESS_FINE_LOCATION)) {
@@ -326,7 +319,6 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
       .emit(EventType.ERROR, map);
   }
 
-
   private static class LocationOptions {
     private final long timeout;
     private final double maximumAge;
@@ -371,22 +363,30 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
 
   public boolean checkPermission(String permission) {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return true;
-
     Context context = getReactApplicationContext().getBaseContext();
     return context.checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED;
   }
 
   public void requestPermission(final String permission) {
-    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return;
-
-    Context context = getReactApplicationContext().getBaseContext();
-    if (context.checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED) return;
+    if (checkPermission(permission)) return;
     PermissionAwareActivity activity = getPermissionAwareActivity();
     activity.requestPermissions(new String[]{permission}, RequestCode.RUNTIME_PERMISSION, this);
   }
 
   @Override
   public boolean onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+
+    switch (requestCode) {
+      case RequestCode.RUNTIME_PERMISSION: {
+        // If request is cancelled, the result arrays are empty.
+        if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+          createGoogleApiClient();
+        } else {
+          Log.e(Application.TAG, "Oups. No permission granted.");
+        }
+      }
+    }
+
     return false;
   }
 
