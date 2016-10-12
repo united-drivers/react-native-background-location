@@ -9,6 +9,7 @@ import android.content.IntentSender.SendIntentException;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.support.v4.content.LocalBroadcastManager;
 
 import com.facebook.react.bridge.ActivityEventListener;
 import com.facebook.react.bridge.Arguments;
@@ -47,19 +48,15 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
 
   private static final float RCT_DEFAULT_LOCATION_ACCURACY = 100;
 
-  private @Nullable LocationOptions mLocationOptions;
   private @Nullable GoogleApiClient mGoogleApiClient;
-  private @Nullable ErrorReceiver mErrorReceiver;
-  private @Nullable LocationReceiver mLocationReceiver;
+  private @Nullable LocationOptions mLocationOptions;
+  private @Nullable BroadcastReceiver mMessageReceiver;
   private @Nullable Promise mStartPromise;
-  private @Nullable Intent mOptionsIntent;
   private @Nullable Intent mServiceIntent;
 
   public BackgroundLocationModule(ReactApplicationContext reactContext) {
     super(reactContext);
     reactContext.addActivityEventListener(this);
-    // TODO: Move this is a promise
-    mOptionsIntent = new Intent(MessageType.SETTINGS);
   }
 
   @Override
@@ -207,9 +204,6 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
 
   private void startBackgroundService() {
     ReactApplicationContext context = getReactApplicationContext();
-
-    mLocationReceiver = new LocationReceiver();
-    mErrorReceiver = new ErrorReceiver();
     mServiceIntent = new Intent(context, BackgroundLocationService.class);
 
     if (mLocationOptions != null) {
@@ -219,67 +213,86 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
       mServiceIntent.putExtras(options);
     }
 
-    context.registerReceiver(mLocationReceiver, new IntentFilter(MessageType.LOCATION));
-    context.registerReceiver(mErrorReceiver, new IntentFilter(MessageType.ERROR));
     context.startService(mServiceIntent);
+    createMessageReceiver();
   }
 
   private void stopBackgroundService() {
-    ReactApplicationContext context = getReactApplicationContext();
+    getReactApplicationContext().stopService(mServiceIntent);
+    destroyMessageReceiver();
 
-    context.unregisterReceiver(mLocationReceiver);
-    context.unregisterReceiver(mErrorReceiver);
-    context.stopService(mServiceIntent);
-
-    mLocationReceiver = null;
-    mErrorReceiver = null;
     mServiceIntent = null;
   }
 
-  private class ErrorReceiver extends BroadcastReceiver {
+  private void createMessageReceiver() {
+    mMessageReceiver = new BroadcastReceiver() {
+      @Override
+      public void onReceive(Context context, Intent intent) {
+        Bundle content = intent.getExtras();
 
-    @Override
-    public void onReceive(Context context, Intent intent) {
-      Bundle error = intent.getExtras();
-      emitError(error.getInt("code", 0), error.getString("message"));
-    }
+        switch (intent.getAction()) {
+          case MessageType.LOCATION:
+            emitLocation(content); break;
+          case MessageType.ERROR:
+            emitError(content); break;
+        }
+      }
+    };
+
+    IntentFilter filter = new IntentFilter();
+    filter.addAction(MessageType.LOCATION);
+    filter.addAction(MessageType.ERROR);
+
+    LocalBroadcastManager
+      .getInstance(getReactApplicationContext())
+      .registerReceiver(mMessageReceiver, filter);
   }
 
-  private void emitError(int code, @Nullable String message) {
+  private void destroyMessageReceiver() {
+    LocalBroadcastManager
+      .getInstance(getReactApplicationContext())
+      .unregisterReceiver(mMessageReceiver);
+  }
+
+  private void sendMessage(String action, Bundle content) {
+    LocalBroadcastManager
+      .getInstance(getReactApplicationContext())
+      .sendBroadcast(new Intent(action).putExtras(content));
+  }
+
+  private void emitLocation(Bundle location) {
+    long now = System.currentTimeMillis();
+    WritableMap coords = Arguments.createMap();
     WritableMap map = Arguments.createMap();
-    map.putInt("code", code);
-    if (message != null) map.putString("message", message);
+
+    coords.putDouble("latitude", location.getDouble("latitude"));
+    coords.putDouble("longitude", location.getDouble("longitude"));
+    coords.putDouble("altitude", location.getDouble("altitude"));
+    coords.putDouble("accuracy", location.getDouble("accuracy"));
+    coords.putDouble("speed", location.getDouble("speed"));
+    coords.putDouble("heading", location.getDouble("heading"));
+
+    map.putMap("coords", coords);
+    map.putBoolean("mocked", location.getBoolean("mocked"));
+    map.putDouble("timestamp", location.getDouble("timestamp", now));
+
+    getReactApplicationContext()
+      .getJSModule(RCTDeviceEventEmitter.class)
+      .emit(EventType.LOCATION, map);
+  }
+
+  private void emitError(Bundle error) {
+    WritableMap map = Arguments.createMap();
+
+    map.putInt("code", error.getInt("code"));
+    String message = error.getString("message");
+
+    if (message != null)
+      map.putString("message", message);
 
     getReactApplicationContext()
       .getJSModule(RCTDeviceEventEmitter.class)
       .emit(EventType.ERROR, map);
-  }
-
-  private class LocationReceiver extends BroadcastReceiver {
-
-    @Override
-    public void onReceive(Context context, Intent intent) {
-      long now = System.currentTimeMillis();
-      Bundle point = intent.getExtras();
-
-      WritableMap coords = Arguments.createMap();
-      WritableMap map = Arguments.createMap();
-
-      coords.putDouble("latitude", point.getDouble("latitude", 0));
-      coords.putDouble("longitude", point.getDouble("longitude", 0));
-      coords.putDouble("altitude", point.getDouble("altitude", 0));
-      coords.putDouble("accuracy", point.getDouble("accuracy", 0));
-      coords.putDouble("speed", point.getDouble("speed", 0));
-      coords.putDouble("heading", point.getDouble("heading", 0));
-
-      map.putMap("coords", coords);
-      map.putBoolean("mocked", point.getBoolean("mocked", false));
-      map.putDouble("timestamp", point.getDouble("timestamp", now));
-
-      getReactApplicationContext()
-        .getJSModule(RCTDeviceEventEmitter.class)
-        .emit(EventType.LOCATION, map);
-    }
   }
 
   private static class LocationOptions {

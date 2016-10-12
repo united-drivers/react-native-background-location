@@ -11,6 +11,7 @@ import android.os.IBinder;
 import android.provider.Settings;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.support.v4.content.LocalBroadcastManager;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
@@ -34,9 +35,7 @@ public class BackgroundLocationService extends Service implements
 
   private @Nullable GoogleApiClient mGoogleApiClient;
   private @Nullable LocationRequest mLocationRequest;
-  private @Nullable OptionsReceiver mOptionsReceiver;
-  private @Nullable Intent mLocationIntent;
-  private @Nullable Intent mErrorIntent;
+  private @Nullable BroadcastReceiver mMessageReceiver;
 
   @Nullable
   @Override
@@ -52,14 +51,14 @@ public class BackgroundLocationService extends Service implements
 
   @Override
   public void onCreate() {
-    registerOptionListener();
     createGoogleApiClient();
+    createMessageReceiver();
   }
 
   @Override
   public void onDestroy() {
-    unregisterOptionListener();
     destroyGoogleApiClient();
+    destroyMessageReceiver();
   }
 
   @Override
@@ -94,14 +93,30 @@ public class BackgroundLocationService extends Service implements
           ErrorType.PLAY_RESOLUTION_REQUIRED,
           "Service requires a resolution for Settings API"
         );
-
         break;
     }
   }
 
   @Override
   public void onLocationChanged(Location location) {
-    sendLocation(location);
+    Bundle bundle = new Bundle();
+
+    bundle.putDouble("latitude", location.getLatitude());
+    bundle.putDouble("longitude", location.getLongitude());
+    bundle.putDouble("altitude", location.getAltitude());
+    bundle.putDouble("accuracy", location.getAccuracy());
+    bundle.putDouble("heading", location.getBearing());
+    bundle.putDouble("speed", location.getSpeed());
+    bundle.putDouble("timestamp", location.getTime());
+
+    if (android.os.Build.VERSION.SDK_INT >= 18) {
+      bundle.putBoolean("mocked", location.isFromMockProvider());
+    } else {
+      boolean isMocked = isMockSettingsOn(getApplicationContext());
+      bundle.putBoolean("mocked", isMocked);
+    }
+
+    sendMessage(MessageType.LOCATION, bundle);
   }
 
   private void setOptions(Bundle options) {
@@ -150,55 +165,45 @@ public class BackgroundLocationService extends Service implements
     mGoogleApiClient = null;
   }
 
+  private void createMessageReceiver() {
+    mMessageReceiver = new BroadcastReceiver() {
+      @Override
+      public void onReceive(Context context, Intent intent) {
+        Bundle content = intent.getExtras();
+
+        switch (intent.getAction()) {
+          case MessageType.SETTINGS:
+            setOptions(content); break;
+        }
+      }
+    };
+
+    IntentFilter filter = new IntentFilter();
+    filter.addAction(MessageType.SETTINGS);
+
+    LocalBroadcastManager
+      .getInstance(getApplicationContext())
+      .registerReceiver(mMessageReceiver, filter);
+  }
+
+  private void destroyMessageReceiver() {
+    LocalBroadcastManager
+      .getInstance(getApplicationContext())
+      .unregisterReceiver(mMessageReceiver);
+  }
+
   private void startLocationUpdates() {
+    if (mGoogleApiClient == null || !mGoogleApiClient.isConnected()) return;
+
     LocationServices.FusedLocationApi
       .requestLocationUpdates(mGoogleApiClient, mLocationRequest, this);
   }
 
   private void stopLocationUpdates() {
     if (mGoogleApiClient == null || !mGoogleApiClient.isConnected()) return;
+
     LocationServices.FusedLocationApi
       .removeLocationUpdates(mGoogleApiClient, this);
-  }
-
-  private void registerOptionListener() {
-    if (mOptionsReceiver != null) return;
-    mOptionsReceiver = new OptionsReceiver();
-
-    getApplicationContext().registerReceiver(
-      mOptionsReceiver,
-      new IntentFilter(MessageType.SETTINGS
-    ));
-  }
-
-  private void unregisterOptionListener() {
-    if (mOptionsReceiver == null) return;
-    getApplicationContext().unregisterReceiver(mOptionsReceiver);
-    mOptionsReceiver = null;
-  }
-
-  private void sendLocation(Location location) {
-    if (mLocationIntent == null)
-      mLocationIntent = new Intent(MessageType.LOCATION);
-
-    Bundle point = new Bundle();
-    point.putDouble("latitude", location.getLatitude());
-    point.putDouble("longitude", location.getLongitude());
-    point.putDouble("altitude", location.getAltitude());
-    point.putDouble("accuracy", location.getAccuracy());
-    point.putDouble("heading", location.getBearing());
-    point.putDouble("speed", location.getSpeed());
-    point.putDouble("timestamp", location.getTime());
-
-    if (android.os.Build.VERSION.SDK_INT >= 18) {
-      point.putBoolean("mocked", location.isFromMockProvider());
-    } else {
-      boolean isMocked = isMockSettingsOn(getApplicationContext());
-      point.putBoolean("mocked", isMocked);
-    }
-
-    mLocationIntent.putExtras(point);
-    sendBroadcast(mLocationIntent);
   }
 
   public static boolean isMockSettingsOn(Context context) {
@@ -207,25 +212,18 @@ public class BackgroundLocationService extends Service implements
       .equals("0");
   }
 
+  private void sendMessage(String action, Bundle content) {
+    LocalBroadcastManager
+      .getInstance(getApplicationContext())
+      .sendBroadcast(new Intent(action).putExtras(content));
+  }
+
   private void sendError(int code, String message) {
-    if (mErrorIntent == null)
-      mErrorIntent = new Intent(MessageType.ERROR);
+    Bundle bundle = new Bundle();
+    bundle.putInt("code", code);
+    bundle.putString("message", message);
 
-    Bundle error = new Bundle();
-    error.putInt("code", code);
-    error.putString("message", message);
-
-    mErrorIntent.putExtras(error);
-    sendBroadcast(mErrorIntent);
+    sendMessage(MessageType.ERROR, bundle);
   }
 
-  private class OptionsReceiver extends BroadcastReceiver {
-
-    @Override
-    public void onReceive(Context context, Intent intent) {
-      stopLocationUpdates();
-      setOptions(intent.getExtras());
-      startLocationUpdates();
-    }
-  }
 }
