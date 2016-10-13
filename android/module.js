@@ -32,7 +32,8 @@ var Geolocation = {
    //BackgroundLocationEventEmitter.removeListener('backgroundLocationDidChange')
    //BackgroundLocationEventEmitter.removeListener('backgroundLocationError')
    updatesEnabled = false;
-  }
+ },
+ AccuracyLevels: BackgroundLocation.AccuracyLevels
 };
 
 export default Geolocation;

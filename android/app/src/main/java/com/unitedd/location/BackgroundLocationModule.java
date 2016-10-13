@@ -20,9 +20,8 @@ import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.common.MapBuilder;
 import com.facebook.react.module.annotations.ReactModule;
 import com.facebook.react.modules.core.DeviceEventManagerModule.RCTDeviceEventEmitter;
-import com.unitedd.location.constant.Application;
+import com.unitedd.location.constant.AccuracyLevel;
 import com.unitedd.location.constant.EventType;
-import com.unitedd.location.constant.PriorityLevel;
 
 import java.util.Map;
 
@@ -35,7 +34,8 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
   private @Nullable Promise mPromise;
   private @Nullable LocationAssistant mAssistant;
   private boolean hasBeenPaused = false;
-  private final int REQUEST_CHECK_SETTINGS = 0;
+  private static final String TAG = "RCT_BACKGROUND_LOCATION";
+  private static final int REQUEST_CHECK_SETTINGS = 0;
 
   public BackgroundLocationModule(ReactApplicationContext reactContext) {
     super(reactContext);
@@ -51,25 +51,41 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
   @Override
   public Map<String, Object> getConstants() {
     final Map<String, Object> constants = MapBuilder.newHashMap();
-    WritableMap priorityLevels = Arguments.createMap();
+    WritableMap accuracyLevels = Arguments.createMap();
 
-    priorityLevels.putInt("HIGH_ACCURACY", PriorityLevel.HIGH_ACCURACY);
-    priorityLevels.putInt("BALANCED", PriorityLevel.BALANCED);
-    priorityLevels.putInt("LOW_POWER", PriorityLevel.LOW_POWER);
-    priorityLevels.putInt("NO_POWER", PriorityLevel.NO_POWER);
+    accuracyLevels.putInt("HIGH", AccuracyLevel.HIGH);
+    accuracyLevels.putInt("MEDIUM", AccuracyLevel.MEDIUM);
+    accuracyLevels.putInt("LOW", AccuracyLevel.LOW);
+    accuracyLevels.putInt("PASSIVE", AccuracyLevel.PASSIVE);
 
-    constants.put("PriorityLevels", priorityLevels);
+    constants.put("AccuracyLevels", accuracyLevels);
     return constants;
   }
 
   @ReactMethod
   public void startObserving(ReadableMap options, final Promise promise) {
     mPromise = promise;
-    // accuracy & interval
+
+    // Default Options
+    LocationAssistant.Accuracy accuracy = LocationAssistant.Accuracy.MEDIUM;
+
+    if (options.hasKey("accuracy")) {
+      Log.e(TAG, "it has accuracy level " + options.getInt("accuracy"));
+
+      switch (options.getInt("accuracy")) {
+        case AccuracyLevel.HIGH: accuracy = LocationAssistant.Accuracy.HIGH; break;
+        case AccuracyLevel.LOW: accuracy = LocationAssistant.Accuracy.LOW; break;
+        case AccuracyLevel.PASSIVE: accuracy = LocationAssistant.Accuracy.PASSIVE; break;
+      }
+    }
+
+    long updateInterval = options.hasKey("updateInterval")
+      ? options.getInt("updateInterval") : 5000;
+    boolean allowMockLocations = options.hasKey("allowMockLocations")
+      ? options.getBoolean("allowMockLocations") : false;
 
     // If assitant already exist, reject promise
-    LocationAssistant.Accuracy accuracy = LocationAssistant.Accuracy.HIGH;
-    mAssistant = new LocationAssistant(getCurrentActivity(), this, accuracy, 1000, false);
+    mAssistant = new LocationAssistant(getCurrentActivity(), this, accuracy, updateInterval, allowMockLocations);
     mAssistant.start();
   }
 
@@ -93,7 +109,7 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
     switch (requestCode) {
       case REQUEST_CHECK_SETTINGS:
         if (resultCode != Activity.RESULT_OK) {
-          Log.e(Application.TAG, "Position declined");
+          Log.e(TAG, "Position declined");
         }
     }
   }
@@ -103,7 +119,7 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
 
   @Override
   public void onHostResume() {
-    Log.e(Application.TAG, "onHostResume");
+    Log.e(TAG, "onHostResume");
 
     if (mAssistant != null && !hasBeenPaused)
       mAssistant.reset();
@@ -112,7 +128,7 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
 
   @Override
   public void onHostPause() {
-    Log.e(Application.TAG, "onHostPause");
+    Log.e(TAG, "onHostPause");
 
     if (mAssistant != null && mAssistant.isSettingsDialogOn())
       hasBeenPaused = true;
@@ -132,7 +148,7 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
 
   @Override
   public void onExplainLocationPermission() {
-    Log.e(Application.TAG, "onExplainLocationChange");
+    Log.e(TAG, "onExplainLocationChange");
   }
 
   @Override
@@ -143,7 +159,7 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
 
   @Override
   public void onFallBackToSystemSettings(View.OnClickListener fromView, DialogInterface.OnClickListener fromDialog) {
-    Log.e(Application.TAG, "onFallBackToSystemSettings");
+    Log.e(TAG, "onFallBackToSystemSettings");
   }
 
   @Override
@@ -164,7 +180,7 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
 
   @Override
   public void onMockLocationsDetected(View.OnClickListener fromView, DialogInterface.OnClickListener fromDialog) {
-    Log.e(Application.TAG, "onMockLocationsDetected");
+    Log.e(TAG, "onMockLocationsDetected");
   }
 
   @Override
