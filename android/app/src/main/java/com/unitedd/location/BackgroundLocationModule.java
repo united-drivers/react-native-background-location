@@ -13,11 +13,9 @@ import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.content.LocalBroadcastManager;
-import android.util.Log;
 
 import com.facebook.react.bridge.ActivityEventListener;
 import com.facebook.react.bridge.Arguments;
-import com.facebook.react.bridge.Callback;
 import com.facebook.react.bridge.LifecycleEventListener;
 import com.facebook.react.bridge.Promise;
 import com.facebook.react.bridge.ReactApplicationContext;
@@ -39,8 +37,8 @@ import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.location.LocationSettingsRequest;
 import com.google.android.gms.location.LocationSettingsResult;
 import com.google.android.gms.location.LocationSettingsStatusCodes;
-import com.unitedd.location.constant.Application;
 import com.unitedd.location.constant.DefaultOption;
+import com.unitedd.location.constant.ErrorType;
 import com.unitedd.location.constant.EventType;
 import com.unitedd.location.constant.MessageType;
 import com.unitedd.location.constant.PriorityLevel;
@@ -92,32 +90,33 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
 
   @ReactMethod
   public void startObserving(ReadableMap options, final Promise promise) {
-    // TODO: if service is already started, pass the options
+    // TODO: if service is already started, just check the settings && pass the options
     mLocationOptions = LocationOptions.fromReactMap(options);
     mPromise = promise;
 
     if (!checkPermission(Manifest.permission.ACCESS_FINE_LOCATION)) {
       requestPermission(Manifest.permission.ACCESS_FINE_LOCATION);
     } else {
-      createGoogleApiClient();
+      connectGoogleApiClient();
     }
   }
 
   @ReactMethod
   public void stopObserving() {
+    disconnectGoogleApiClient();
+    disconnectMessageReceiver();
     stopBackgroundService();
   }
 
   @Override
   public void onConnected(@Nullable Bundle bundle) {
-    if (mLocationOptions == null) return;
-
-    LocationRequest locationRequest = new LocationRequest()
-      .setPriority(mLocationOptions.accuracy);
+    if (mLocationOptions == null)
+      mLocationOptions = LocationOptions.fromReactMap(Arguments.createMap());
+    if (mLocationOptions == null) return; // Useless, to avoid IDE screaming
 
     LocationSettingsRequest settingsRequest = new LocationSettingsRequest.Builder()
       .setAlwaysShow(true)
-      .addLocationRequest(locationRequest)
+      .addLocationRequest(LocationRequest.create().setPriority(mLocationOptions.accuracy))
       .build();
 
     LocationServices.SettingsApi
@@ -127,14 +126,13 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
 
   @Override
   public void onConnectionSuspended(int i) {
-    if (mGoogleApiClient != null)
-      mGoogleApiClient.connect();
+    connectGoogleApiClient();
   }
 
   @Override
   public void onConnectionFailed(@NonNull ConnectionResult result) {
-    if (mPromise == null) return;
-    mPromise.reject("code", "Connection to Google Play Services failed");
+    if (mPromise != null)
+      mPromise.reject("code", "Connection to Google Play Services failed");
   }
 
   @Override
@@ -143,24 +141,24 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
 
     switch (status.getStatusCode()) {
       case LocationSettingsStatusCodes.SUCCESS:
+        connectMessageReceiver();
         startBackgroundService();
 
-        if (mPromise == null) return;
-        mPromise.resolve(true);
-        mPromise = null;
+        if (mPromise != null) {
+          mPromise.resolve(null);
+          mPromise = null;
+        }
 
         break;
       case LocationSettingsStatusCodes.RESOLUTION_REQUIRED:
         try {
-          status.startResolutionForResult(
-            getCurrentActivity(),
-            RequestCode.SETTINGS_API
-          );
+          status.startResolutionForResult(getCurrentActivity(), RequestCode.SETTINGS_API);
         }
         catch (SendIntentException e) {
-          if (mPromise == null) return;
-          mPromise.reject("code", e);
-          mPromise = null;
+          if (mPromise != null) {
+            mPromise.reject("code", e);
+            mPromise = null;
+          }
         }
 
         break;
@@ -172,7 +170,13 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
 
   @Override
   public void onHostResume() {
-    // checkPermission();
+    if (mGoogleApiClient != null) return;
+
+    if (!checkPermission(Manifest.permission.ACCESS_FINE_LOCATION)) {
+      requestPermission(Manifest.permission.ACCESS_FINE_LOCATION);
+    } else {
+      connectGoogleApiClient();
+    }
   }
 
   @Override
@@ -180,9 +184,6 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
 
   @Override
   public void onHostDestroy() {
-    if (mGoogleApiClient != null)
-      destroyGoogleApiClient();
-
     stopObserving();
   }
 
@@ -193,31 +194,36 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
         if (resultCode == Activity.RESULT_OK) {
           startBackgroundService();
 
-          if (mPromise == null) return;
-          mPromise.resolve(true);
-          mPromise = null;
+          if (mPromise != null) {
+            mPromise.resolve(true);
+            mPromise = null;
+          }
         } else {
-          destroyGoogleApiClient();
+          disconnectGoogleApiClient();
 
-          if (mPromise == null) return;
-          mPromise.reject("code", "User rejected GPS");
-          mPromise = null;
+          if (mPromise != null) {
+            mPromise.reject("code", "User rejected GPS");
+            mPromise = null;
+          }
         }
     }
   }
 
-  private void createGoogleApiClient() {
-    mGoogleApiClient = new GoogleApiClient
-      .Builder(getReactApplicationContext())
-      .addApi(LocationServices.API)
-      .addConnectionCallbacks(this)
-      .addOnConnectionFailedListener(this)
-      .build();
+  private void connectGoogleApiClient() {
+    if (mGoogleApiClient == null) {
+      mGoogleApiClient = new GoogleApiClient
+        .Builder(getReactApplicationContext().getBaseContext())
+        .addApi(LocationServices.API)
+        .addConnectionCallbacks(this)
+        .addOnConnectionFailedListener(this)
+        .build();
+    }
 
-    mGoogleApiClient.connect();
+    if (!mGoogleApiClient.isConnected() && !mGoogleApiClient.isConnecting())
+      mGoogleApiClient.connect();
   }
 
-  private void destroyGoogleApiClient() {
+  private void disconnectGoogleApiClient() {
     if (mGoogleApiClient == null) return;
 
     mGoogleApiClient.unregisterConnectionCallbacks(this);
@@ -227,7 +233,7 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
   }
 
   private void startBackgroundService() {
-    ReactApplicationContext context = getReactApplicationContext();
+    Context context = getReactApplicationContext().getBaseContext();
     mService = new Intent(context, BackgroundLocationService.class);
 
     if (mLocationOptions != null) {
@@ -238,20 +244,23 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
     }
 
     context.startService(mService);
-    createMessageReceiver();
   }
 
   private void stopBackgroundService() {
-    getReactApplicationContext().stopService(mService);
-    destroyMessageReceiver();
+    if (mService == null) return;
+
+    getReactApplicationContext()
+      .getBaseContext()
+      .stopService(mService);
 
     mService = null;
   }
 
-  private void createMessageReceiver() {
+  private void connectMessageReceiver() {
+    if (mMessageReceiver != null) return;
+
     mMessageReceiver = new BroadcastReceiver() {
-      @Override
-      public void onReceive(Context context, Intent intent) {
+      public @Override void onReceive(Context context, Intent intent) {
         Bundle content = intent.getExtras();
 
         switch (intent.getAction()) {
@@ -268,19 +277,23 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
     filter.addAction(MessageType.ERROR);
 
     LocalBroadcastManager
-      .getInstance(getReactApplicationContext())
+      .getInstance(getReactApplicationContext().getBaseContext())
       .registerReceiver(mMessageReceiver, filter);
   }
 
-  private void destroyMessageReceiver() {
+  private void disconnectMessageReceiver() {
+    if (mMessageReceiver == null) return;
+
     LocalBroadcastManager
-      .getInstance(getReactApplicationContext())
+      .getInstance(getReactApplicationContext().getBaseContext())
       .unregisterReceiver(mMessageReceiver);
+
+    mMessageReceiver = null;
   }
 
   private void sendMessage(String action, Bundle content) {
     LocalBroadcastManager
-      .getInstance(getReactApplicationContext())
+      .getInstance(getReactApplicationContext().getBaseContext())
       .sendBroadcast(new Intent(action).putExtras(content));
   }
 
@@ -359,32 +372,31 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
     }
   }
 
-  // PERMISSIONS
 
-  public boolean checkPermission(String permission) {
+  private boolean checkPermission(String permission) {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return true;
-    Context context = getReactApplicationContext().getBaseContext();
-    return context.checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED;
+
+    return getReactApplicationContext()
+      .getBaseContext()
+      .checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED;
   }
 
-  public void requestPermission(final String permission) {
+  private void requestPermission(final String permission) {
     if (checkPermission(permission)) return;
+
     PermissionAwareActivity activity = getPermissionAwareActivity();
-    activity.requestPermissions(new String[]{permission}, RequestCode.RUNTIME_PERMISSION, this);
+    activity.requestPermissions(new String[] { permission }, RequestCode.RUNTIME_PERMISSION, this);
   }
 
   @Override
   public boolean onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+    boolean granted = grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED;
 
-    switch (requestCode) {
-      case RequestCode.RUNTIME_PERMISSION: {
-        // If request is cancelled, the result arrays are empty.
-        if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-          createGoogleApiClient();
-        } else {
-          Log.e(Application.TAG, "Oups. No permission granted.");
-        }
-      }
+    if (requestCode == RequestCode.RUNTIME_PERMISSION && granted) {
+      connectGoogleApiClient();
+    } else if (mPromise != null) {
+      mPromise.reject("ERROR_" + ErrorType.PERMISSION_DENIED, "request code blabla");
+      mPromise = null;
     }
 
     return false;

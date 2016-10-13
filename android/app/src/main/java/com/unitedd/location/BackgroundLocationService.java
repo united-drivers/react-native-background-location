@@ -167,8 +167,7 @@ public class BackgroundLocationService extends Service implements
 
   private void createMessageReceiver() {
     mMessageReceiver = new BroadcastReceiver() {
-      @Override
-      public void onReceive(Context context, Intent intent) {
+      public @Override void onReceive(Context context, Intent intent) {
         Bundle content = intent.getExtras();
 
         switch (intent.getAction()) {
