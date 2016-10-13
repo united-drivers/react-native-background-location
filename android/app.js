@@ -34,7 +34,14 @@ class BackgroundGeolocation extends Component {
       console.warn(error);
     })
 
-    checkPermissions()
+    BackgroundLocation
+                .startObserving({
+                  accuracy: BackgroundLocation.PriorityLevels.HIGH_ACCURACY
+                })
+                .then(l => console.log(l))
+                .catch(e => console.warn(e))
+
+    /*checkPermissions()
       .then(granted => {
         if (granted) {
           BackgroundLocation
@@ -44,7 +51,7 @@ class BackgroundGeolocation extends Component {
             .then(l => console.log(l))
             .catch(e => console.warn(e))
         }
-      })
+      })*/
   }
 
   render() {
