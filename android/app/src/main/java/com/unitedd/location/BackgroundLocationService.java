@@ -57,13 +57,22 @@ public class BackgroundLocationService extends Service implements
 
   @Override
   public void onDestroy() {
+    stopLocationUpdates();
     destroyGoogleApiClient();
     destroyMessageReceiver();
   }
 
   @Override
   public void onConnected(@Nullable Bundle bundle) {
-    askForSettings();
+    if (mLocationRequest == null) return;
+
+    LocationSettingsRequest settingsRequest = new LocationSettingsRequest.Builder()
+      .addLocationRequest(mLocationRequest)
+      .build();
+
+    LocationServices.SettingsApi
+      .checkLocationSettings(mGoogleApiClient, settingsRequest)
+      .setResultCallback(this);
   }
 
   @Override
@@ -132,18 +141,6 @@ public class BackgroundLocationService extends Service implements
     mLocationRequest.setInterval(interval);
   }
 
-  private void askForSettings() {
-    if (mLocationRequest == null) return;
-
-    LocationSettingsRequest settingsRequest = new LocationSettingsRequest.Builder()
-      .addLocationRequest(mLocationRequest)
-      .build();
-
-    LocationServices.SettingsApi
-      .checkLocationSettings(mGoogleApiClient, settingsRequest)
-      .setResultCallback(this);
-  }
-
   private void createGoogleApiClient() {
     mGoogleApiClient = new GoogleApiClient
       .Builder(getApplicationContext())
@@ -160,7 +157,6 @@ public class BackgroundLocationService extends Service implements
 
     mGoogleApiClient.unregisterConnectionCallbacks(this);
     mGoogleApiClient.unregisterConnectionFailedListener(this);
-    stopLocationUpdates();
     mGoogleApiClient.disconnect();
     mGoogleApiClient = null;
   }
