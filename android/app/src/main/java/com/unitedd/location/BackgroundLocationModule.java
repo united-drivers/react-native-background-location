@@ -34,6 +34,7 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
 
   private @Nullable Promise mPromise;
   private @Nullable LocationAssistant mAssistant;
+  private boolean hasBeenPaused = false;
   private final int REQUEST_CHECK_SETTINGS = 0;
 
   public BackgroundLocationModule(ReactApplicationContext reactContext) {
@@ -101,10 +102,21 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
   public void onNewIntent(Intent intent) {}
 
   @Override
-  public void onHostResume() {}
+  public void onHostResume() {
+    Log.e(Application.TAG, "onHostResume");
+
+    if (mAssistant != null && !hasBeenPaused)
+      mAssistant.reset();
+    hasBeenPaused = false;
+  }
 
   @Override
-  public void onHostPause() {}
+  public void onHostPause() {
+    Log.e(Application.TAG, "onHostPause");
+
+    if (mAssistant != null && mAssistant.isSettingsDialogOn())
+      hasBeenPaused = true;
+  }
 
   @Override
   public void onHostDestroy() {

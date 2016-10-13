@@ -181,6 +181,7 @@ public class LocationAssistant
   private LocationRequest locationRequest;
   private Status locationStatus;
   private boolean mockLocationsEnabled;
+  private boolean settingsDialogIsOn;
 
   // Mock location rejection
   private Location lastMockLocation;
@@ -372,6 +373,7 @@ public class LocationAssistant
    */
   public void onActivityResult(int requestCode, int resultCode) {
     if (requestCode != REQUEST_CHECK_SETTINGS) return;
+    settingsDialogIsOn = false;
     if (resultCode == Activity.RESULT_OK) {
       changeSettings = false;
       locationStatusOk = true;
@@ -395,6 +397,7 @@ public class LocationAssistant
       return;
     }
     try {
+      settingsDialogIsOn = true;
       locationStatus.startResolutionForResult(activity, REQUEST_CHECK_SETTINGS);
     } catch (IntentSender.SendIntentException e) {
       if (!quiet)
@@ -406,6 +409,10 @@ public class LocationAssistant
       changeSettings = false;
       acquireLocation();
     }
+  }
+
+  public boolean isSettingsDialogOn() {
+    return settingsDialogIsOn;
   }
 
   protected void acquireLocation() {
