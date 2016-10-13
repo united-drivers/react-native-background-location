@@ -70,8 +70,6 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
     LocationAssistant.Accuracy accuracy = LocationAssistant.Accuracy.MEDIUM;
 
     if (options.hasKey("accuracy")) {
-      Log.e(TAG, "it has accuracy level " + options.getInt("accuracy"));
-
       switch (options.getInt("accuracy")) {
         case AccuracyLevel.HIGH: accuracy = LocationAssistant.Accuracy.HIGH; break;
         case AccuracyLevel.LOW: accuracy = LocationAssistant.Accuracy.LOW; break;
@@ -119,8 +117,6 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
 
   @Override
   public void onHostResume() {
-    Log.e(TAG, "onHostResume");
-
     if (mAssistant != null && !hasBeenPaused)
       mAssistant.reset();
     hasBeenPaused = false;
@@ -128,8 +124,6 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
 
   @Override
   public void onHostPause() {
-    Log.e(TAG, "onHostPause");
-
     if (mAssistant != null && mAssistant.isSettingsDialogOn())
       hasBeenPaused = true;
   }
