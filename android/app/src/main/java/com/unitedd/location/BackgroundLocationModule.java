@@ -1,19 +1,12 @@
 package com.unitedd.location;
 
-import android.Manifest;
 import android.app.Activity;
-import android.content.BroadcastReceiver;
-import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
-import android.content.IntentFilter;
-import android.content.IntentSender.SendIntentException;
-import android.content.pm.PackageManager;
-import android.os.Build;
-import android.os.Bundle;
-import android.support.annotation.NonNull;
+import android.location.Location;
 import android.support.annotation.Nullable;
-import android.support.v4.content.LocalBroadcastManager;
 import android.util.Log;
+import android.view.View;
 
 import com.facebook.react.bridge.ActivityEventListener;
 import com.facebook.react.bridge.Arguments;
@@ -27,66 +20,26 @@ import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.common.MapBuilder;
 import com.facebook.react.module.annotations.ReactModule;
 import com.facebook.react.modules.core.DeviceEventManagerModule.RCTDeviceEventEmitter;
-import com.facebook.react.modules.core.PermissionAwareActivity;
-import com.facebook.react.modules.core.PermissionListener;
-import com.google.android.gms.common.ConnectionResult;
-import com.google.android.gms.common.api.GoogleApiClient;
-import com.google.android.gms.common.api.ResultCallback;
-import com.google.android.gms.common.api.Status;
-import com.google.android.gms.location.LocationRequest;
-import com.google.android.gms.location.LocationServices;
-import com.google.android.gms.location.LocationSettingsRequest;
-import com.google.android.gms.location.LocationSettingsResult;
-import com.google.android.gms.location.LocationSettingsStatusCodes;
 import com.unitedd.location.constant.Application;
-import com.unitedd.location.constant.DefaultOption;
-import com.unitedd.location.constant.ErrorType;
 import com.unitedd.location.constant.EventType;
-import com.unitedd.location.constant.MessageType;
 import com.unitedd.location.constant.PriorityLevel;
-import com.unitedd.location.constant.RequestCode;
 
 import java.util.Map;
 
 @ReactModule(name = "BackgroundLocation")
 public class BackgroundLocationModule extends ReactContextBaseJavaModule implements
-  GoogleApiClient.ConnectionCallbacks,
-  GoogleApiClient.OnConnectionFailedListener,
-  ResultCallback<LocationSettingsResult>,
   ActivityEventListener,
   LifecycleEventListener,
-  PermissionListener {
+  LocationAssistant.Listener {
 
-  private static final float RCT_DEFAULT_LOCATION_ACCURACY = 100;
-
-  private GoogleApiClient mGoogleApiClient;
-  private BroadcastReceiver mMessageReceiver;
-  private Intent mService;
-  private @Nullable LocationOptions mLocationOptions;
   private @Nullable Promise mPromise;
+  private @Nullable LocationAssistant mAssistant;
+  private final int REQUEST_CHECK_SETTINGS = 0;
 
   public BackgroundLocationModule(ReactApplicationContext reactContext) {
     super(reactContext);
     reactContext.addActivityEventListener(this);
     reactContext.addLifecycleEventListener(this);
-
-    mGoogleApiClient =  new GoogleApiClient
-      .Builder(reactContext.getBaseContext())
-      .addApi(LocationServices.API)
-      .build();
-
-    mService = new Intent(reactContext.getBaseContext(), BackgroundLocationService.class);
-
-    mMessageReceiver = new BroadcastReceiver() {
-      public @Override void onReceive(Context context, Intent intent) {
-        Bundle content = intent.getExtras();
-
-        switch (intent.getAction()) {
-          case MessageType.LOCATION: emitLocation(content); break;
-          case MessageType.ERROR: emitError(content); break;
-        }
-      }
-    };
   }
 
   @Override
@@ -110,289 +63,108 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
 
   @ReactMethod
   public void startObserving(ReadableMap options, final Promise promise) {
-    // TODO: if service is already started, just check the settings && pass the options
-    mLocationOptions = LocationOptions.fromReactMap(options);
     mPromise = promise;
+    // accuracy & interval
 
-    if (!checkPermission(Manifest.permission.ACCESS_FINE_LOCATION)) {
-      requestPermission(Manifest.permission.ACCESS_FINE_LOCATION);
-    } else {
-      connectGoogleApiClient();
-    }
+    // If assitant already exist, reject promise
+    LocationAssistant.Accuracy accuracy = LocationAssistant.Accuracy.HIGH;
+    mAssistant = new LocationAssistant(getCurrentActivity(), this, accuracy, 1000, false);
+    mAssistant.start();
+  }
+
+  public void checkSettings() {
+    if (mAssistant != null)
+      mAssistant.reset();
   }
 
   @ReactMethod
   public void stopObserving() {
-    disconnectGoogleApiClient();
-    disconnectMessageReceiver();
-    stopBackgroundService();
-  }
-
-  @Override
-  public void onConnected(@Nullable Bundle bundle) {
-    int accuracy = mLocationOptions != null
-      ? mLocationOptions.accuracy
-      : DefaultOption.accuracy;
-
-    LocationSettingsRequest settingsRequest = new LocationSettingsRequest.Builder()
-      .setAlwaysShow(true)
-      .addLocationRequest(new LocationRequest().setPriority(accuracy))
-      .build();
-
-    LocationServices.SettingsApi
-      .checkLocationSettings(mGoogleApiClient, settingsRequest)
-      .setResultCallback(this);
-  }
-
-  @Override
-  public void onConnectionSuspended(int i) { }
-
-  @Override
-  public void onConnectionFailed(@NonNull ConnectionResult result) {
-    disconnectGoogleApiClient();
-
-    if (mPromise != null) {
-      mPromise.reject("code", "Connection to Google Play Services failed");
-      mPromise = null;
-    }
-  }
-
-  @Override
-  public void onResult(@NonNull LocationSettingsResult result) {
-    final Status status = result.getStatus();
-
-    switch (status.getStatusCode()) {
-      case LocationSettingsStatusCodes.SUCCESS:
-        connectMessageReceiver();
-        startBackgroundService();
-
-        if (mPromise != null) {
-          mPromise.resolve(null);
-          mPromise = null;
-        }
-
-        break;
-      case LocationSettingsStatusCodes.RESOLUTION_REQUIRED:
-        try {
-          status.startResolutionForResult(getCurrentActivity(), RequestCode.SETTINGS_API);
-        }
-        catch (SendIntentException e) {
-          if (mPromise != null) {
-            mPromise.reject("code", e);
-            mPromise = null;
-          }
-        }
-
-        break;
-    }
-  }
-
-  @Override
-  public void onNewIntent(Intent intent) { }
-
-  @Override
-  public void onHostResume() { }
-
-  @Override
-  public void onHostPause() { }
-
-  @Override
-  public void onHostDestroy() {
-    stopObserving();
+    if (mAssistant != null)
+      mAssistant.stop();
   }
 
   @Override
   public void onActivityResult(Activity activity, int requestCode, int resultCode, Intent data) {
+    if (mAssistant != null) {
+      mAssistant.onActivityResult(requestCode, resultCode);
+    }
+
     switch (requestCode) {
-      case RequestCode.SETTINGS_API:
-        if (resultCode == Activity.RESULT_OK) {
-          startBackgroundService();
-
-          if (mPromise != null) {
-            mPromise.resolve(true);
-            mPromise = null;
-          }
-        } else {
-          disconnectGoogleApiClient();
-
-          if (mPromise != null) {
-            mPromise.reject("code", "User rejected GPS");
-            mPromise = null;
-          }
+      case REQUEST_CHECK_SETTINGS:
+        if (resultCode != Activity.RESULT_OK) {
+          Log.e(Application.TAG, "Position declined");
         }
     }
   }
 
-  private void connectGoogleApiClient() {
-    mGoogleApiClient.registerConnectionCallbacks(this);
-    mGoogleApiClient.registerConnectionFailedListener(this);
-    mGoogleApiClient.connect();
+  @Override
+  public void onNewIntent(Intent intent) {}
+
+  @Override
+  public void onHostResume() {}
+
+  @Override
+  public void onHostPause() {}
+
+  @Override
+  public void onHostDestroy() {
+    stopObserving();
+    mAssistant = null;
   }
 
-  private void disconnectGoogleApiClient() {
-    mGoogleApiClient.unregisterConnectionCallbacks(this);
-    mGoogleApiClient.unregisterConnectionFailedListener(this);
-    mGoogleApiClient.disconnect();
+  @Override
+  public void onNeedLocationPermission() {
+    if (mAssistant != null)
+      mAssistant.requestLocationPermission();
   }
 
-  private void startBackgroundService() {
-    if (mLocationOptions != null) {
-      // Pass here all the options used for the service starting
-      Bundle options = new Bundle();
-      options.putInt("accuracy", mLocationOptions.accuracy);
-      mService.putExtras(options);
-    }
-
-    getReactApplicationContext()
-      .getBaseContext()
-      .startService(mService);
+  @Override
+  public void onExplainLocationPermission() {
+    Log.e(Application.TAG, "onExplainLocationChange");
   }
 
-  private void stopBackgroundService() {
-    getReactApplicationContext()
-      .getBaseContext()
-      .stopService(mService);
+  @Override
+  public void onNeedLocationSettingsChange() {
+    if (mAssistant != null)
+      mAssistant.changeLocationSettings();
   }
 
-  private void connectMessageReceiver() {
-    IntentFilter filter = new IntentFilter();
-    filter.addAction(MessageType.LOCATION);
-    filter.addAction(MessageType.ERROR);
-
-    LocalBroadcastManager
-      .getInstance(getReactApplicationContext().getBaseContext())
-      .registerReceiver(mMessageReceiver, filter);
+  @Override
+  public void onFallBackToSystemSettings(View.OnClickListener fromView, DialogInterface.OnClickListener fromDialog) {
+    Log.e(Application.TAG, "onFallBackToSystemSettings");
   }
 
-  private void disconnectMessageReceiver() {
-    LocalBroadcastManager
-      .getInstance(getReactApplicationContext().getBaseContext())
-      .unregisterReceiver(mMessageReceiver);
-  }
-
-  private void sendMessage(String action, Bundle content) {
-    LocalBroadcastManager
-      .getInstance(getReactApplicationContext().getBaseContext())
-      .sendBroadcast(new Intent(action).putExtras(content));
-  }
-
-  private void emitLocation(Bundle location) {
-    long now = System.currentTimeMillis();
-    WritableMap coords = Arguments.createMap();
+  @Override
+  public void onNewLocationAvailable(Location location) {
     WritableMap map = Arguments.createMap();
-
-    coords.putDouble("latitude", location.getDouble("latitude"));
-    coords.putDouble("longitude", location.getDouble("longitude"));
-    coords.putDouble("altitude", location.getDouble("altitude"));
-    coords.putDouble("accuracy", location.getDouble("accuracy"));
-    coords.putDouble("speed", location.getDouble("speed"));
-    coords.putDouble("heading", location.getDouble("heading"));
-
-    map.putMap("coords", coords);
-    map.putBoolean("mocked", location.getBoolean("mocked"));
-    map.putDouble("timestamp", location.getDouble("timestamp", now));
+    map.putDouble("latitude", location.getLatitude());
+    map.putDouble("longitude", location.getLongitude());
+    map.putDouble("altitude", location.getAltitude());
+    map.putDouble("accuracy", location.getAccuracy());
+    map.putDouble("speed", location.getSpeed());
+    map.putDouble("heading", location.getBearing());
+    map.putDouble("timestamp", location.getTime());
 
     getReactApplicationContext()
       .getJSModule(RCTDeviceEventEmitter.class)
       .emit(EventType.LOCATION, map);
   }
 
-  private void emitError(Bundle error) {
+  @Override
+  public void onMockLocationsDetected(View.OnClickListener fromView, DialogInterface.OnClickListener fromDialog) {
+    Log.e(Application.TAG, "onMockLocationsDetected");
+  }
+
+  @Override
+  public void onError(LocationAssistant.ErrorType type, String message) {
+    int code = type == LocationAssistant.ErrorType.RETRIEVAL ? 0 : 1;
+
     WritableMap map = Arguments.createMap();
-
-    map.putInt("code", error.getInt("code"));
-    String message = error.getString("message");
-
-    if (message != null)
-      map.putString("message", message);
+    map.putInt("code", code);
+    map.putString("message", message);
 
     getReactApplicationContext()
       .getJSModule(RCTDeviceEventEmitter.class)
       .emit(EventType.ERROR, map);
   }
-
-  private static class LocationOptions {
-    private final long timeout;
-    private final double maximumAge;
-    private final int accuracy;
-    private final float distanceFilter;
-
-    private LocationOptions(
-      long timeout,
-      double maximumAge,
-      int accuracy,
-      float distanceFilter
-    ) {
-      this.timeout = timeout;
-      this.maximumAge = maximumAge;
-      this.accuracy = accuracy;
-      this.distanceFilter = distanceFilter;
-    }
-
-    private static LocationOptions fromReactMap(ReadableMap map) {
-      // precision might be dropped on timeout (double -> int conversion), but that's OK
-      long timeout = map.hasKey("timeout")
-        ? (long) map.getDouble("timeout")
-        : Long.MAX_VALUE;
-
-      double maximumAge = map.hasKey("maximumAge")
-        ? map.getDouble("maximumAge")
-        : Double.POSITIVE_INFINITY;
-
-      int accuracy = map.hasKey("accuracy")
-        ? map.getInt("accuracy")
-        : DefaultOption.accuracy;
-
-      float distanceFilter = map.hasKey("distanceFilter")
-        ? (float) map.getDouble("distanceFilter")
-        : RCT_DEFAULT_LOCATION_ACCURACY;
-
-      return new LocationOptions(timeout, maximumAge, accuracy, distanceFilter);
-    }
-  }
-
-
-  private boolean checkPermission(String permission) {
-    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return true;
-
-    return getReactApplicationContext()
-      .getBaseContext()
-      .checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED;
-  }
-
-  private void requestPermission(final String permission) {
-    if (checkPermission(permission)) return;
-
-    PermissionAwareActivity activity = getPermissionAwareActivity();
-    activity.requestPermissions(new String[] { permission }, RequestCode.RUNTIME_PERMISSION, this);
-  }
-
-  @Override
-  public boolean onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
-    boolean granted = grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED;
-
-    if (requestCode == RequestCode.RUNTIME_PERMISSION && granted) {
-      connectGoogleApiClient();
-    } else {
-      if (mPromise != null) {
-        mPromise.reject("ERROR_" + ErrorType.PERMISSION_DENIED, "request code blabla");
-        mPromise = null;
-      }
-    }
-
-    return false;
-  }
-
-  private PermissionAwareActivity getPermissionAwareActivity() {
-    Activity activity = getCurrentActivity();
-
-    if (activity == null) {
-      throw new IllegalStateException("Tried to use permissions API while not attached to an Activity.");
-    } else if (!(activity instanceof PermissionAwareActivity)) {
-      throw new IllegalStateException("Tried to use permissions API but the host Activity doesn't implement PermissionAwareActivity.");
-    }
-
-    return (PermissionAwareActivity) activity;
-  }
-
 }
