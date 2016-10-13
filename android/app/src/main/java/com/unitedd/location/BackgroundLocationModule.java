@@ -100,9 +100,8 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
 
   @Override
   public void onActivityResult(Activity activity, int requestCode, int resultCode, Intent data) {
-    if (mAssistant != null) {
+    if (mAssistant != null)
       mAssistant.onActivityResult(requestCode, resultCode);
-    }
 
     switch (requestCode) {
       case REQUEST_CHECK_SETTINGS:
