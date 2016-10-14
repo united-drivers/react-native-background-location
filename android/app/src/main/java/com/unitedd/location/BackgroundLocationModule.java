@@ -22,6 +22,7 @@ import com.facebook.react.module.annotations.ReactModule;
 import com.facebook.react.modules.core.DeviceEventManagerModule.RCTDeviceEventEmitter;
 import com.facebook.react.modules.core.PermissionListener;
 import com.unitedd.location.constant.AccuracyLevel;
+import com.unitedd.location.constant.ErrorType;
 import com.unitedd.location.constant.EventType;
 
 import java.util.Map;
@@ -110,9 +111,15 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
     if (mAssistant != null)
       mAssistant.onActivityResult(requestCode, resultCode);
 
-    if (requestCode == REQUEST_CHECK_SETTINGS && resultCode != Activity.RESULT_OK && mPromise != null) {
-      mPromise.reject("SETTINGS_ERROR", "User has declined location settings");
-      mPromise = null;
+    if (requestCode == REQUEST_CHECK_SETTINGS && resultCode != Activity.RESULT_OK) {
+      String message = "Settings declined";
+
+      if (mPromise != null) {
+        mPromise.reject("SETTINGS_ERROR", message);
+        mPromise = null;
+      } else {
+        emitError(ErrorType.SETTINGS_ERROR, message);
+      }
     }
   }
 
@@ -145,9 +152,15 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
     if (mAssistant != null && requestCode == REQUEST_REQUEST_PERMISSION) {
       mAssistant.onPermissionsUpdated(granted);
 
-      if (!granted && mPromise != null) {
-        mPromise.reject("PERMISSION_ERROR", "User has declined location permission");
-        mPromise = null;
+      if (!granted) {
+        String message = "Permissions declined";
+
+        if (mPromise != null) {
+          mPromise.reject("PERMISSION_ERROR", message);
+          mPromise = null;
+        } else {
+          emitError(ErrorType.PERMISSION_ERROR, message);
+        }
       }
     }
 
@@ -203,20 +216,26 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
 
   @Override
   public void onError(LocationAssistant.ErrorType type, String message) {
-    int code = type == LocationAssistant.ErrorType.RETRIEVAL ? 0 : 1;
-
     if (mPromise != null) {
       mPromise.reject("INIT_ERROR", message);
       mPromise = null;
     } else {
-      WritableMap map = Arguments.createMap();
-      map.putInt("code", code);
-      map.putString("message", message);
+      int code = type == LocationAssistant.ErrorType.RETRIEVAL
+        ? ErrorType.SETTINGS_ERROR
+        : ErrorType.RETRIEVAL_ERROR;
 
-      getReactApplicationContext()
-        .getJSModule(RCTDeviceEventEmitter.class)
-        .emit(EventType.ERROR, map);
+      emitError(code, message);
     }
+  }
+
+  private void emitError(int code, String message) {
+    WritableMap map = Arguments.createMap();
+    map.putInt("code", code);
+    map.putString("message", message);
+
+    getReactApplicationContext()
+      .getJSModule(RCTDeviceEventEmitter.class)
+      .emit(EventType.ERROR, map);
   }
 
 }
