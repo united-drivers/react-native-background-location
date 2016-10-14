@@ -35,6 +35,8 @@ import android.support.v4.content.ContextCompat;
 import android.util.Log;
 import android.view.View;
 
+import com.facebook.react.modules.core.PermissionAwareActivity;
+import com.facebook.react.modules.core.PermissionListener;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.common.api.ResultCallback;
@@ -56,7 +58,7 @@ public class LocationAssistant
   /**
    * Delivers relevant events required to obtain (valid) location info.
    */
-  public interface Listener {
+  public interface Listener extends PermissionListener {
     /**
      * Called when the user needs to grant the app location permission at run time.
      * This is only necessary on newer Android systems (API level >= 23).
@@ -352,8 +354,9 @@ public class LocationAssistant
           " or register it explicitly with register().");
       return;
     }
-    ActivityCompat.requestPermissions(activity,
-      new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, REQUEST_REQUEST_PERMISSION);
+
+    getPermissionAwareActivity().requestPermissions(
+      new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, REQUEST_REQUEST_PERMISSION, listener);
   }
 
   /**
@@ -688,5 +691,16 @@ public class LocationAssistant
       acquireLocation();
     }
   };
+
+  private PermissionAwareActivity getPermissionAwareActivity() {
+    if (activity == null) {
+      throw new IllegalStateException("Tried to use permissions API while not attached to an " +
+        "Activity.");
+    } else if (!(activity instanceof PermissionAwareActivity)) {
+      throw new IllegalStateException("Tried to use permissions API but the host Activity doesn't" +
+        " implement PermissionAwareActivity.");
+    }
+    return (PermissionAwareActivity) activity;
+  }
 
 }

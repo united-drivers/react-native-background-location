@@ -20,6 +20,7 @@ import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.common.MapBuilder;
 import com.facebook.react.module.annotations.ReactModule;
 import com.facebook.react.modules.core.DeviceEventManagerModule.RCTDeviceEventEmitter;
+import com.facebook.react.modules.core.PermissionListener;
 import com.unitedd.location.constant.AccuracyLevel;
 import com.unitedd.location.constant.EventType;
 
@@ -29,6 +30,7 @@ import java.util.Map;
 public class BackgroundLocationModule extends ReactContextBaseJavaModule implements
   ActivityEventListener,
   LifecycleEventListener,
+  PermissionListener,
   LocationAssistant.Listener {
 
   private @Nullable Promise mPromise;
@@ -87,6 +89,7 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
     mAssistant.start();
   }
 
+  @ReactMethod
   public void checkSettings() {
     if (mAssistant != null)
       mAssistant.reset();
@@ -105,8 +108,9 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
 
     switch (requestCode) {
       case REQUEST_CHECK_SETTINGS:
-        if (resultCode != Activity.RESULT_OK) {
-          Log.e(TAG, "Position declined");
+        if (resultCode != Activity.RESULT_OK && mPromise != null) {
+          mPromise.reject("TRACKING_DECLINED", "User has declined location tracking");
+          mPromise = null;
         }
     }
   }
@@ -134,6 +138,13 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
   }
 
   @Override
+  public boolean onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+    Log.e(TAG, "onRequestPermissionsResult");
+
+    return false;
+  }
+
+  @Override
   public void onNeedLocationPermission() {
     if (mAssistant != null)
       mAssistant.requestLocationPermission();
@@ -157,6 +168,8 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
 
   @Override
   public void onNewLocationAvailable(Location location) {
+    Log.e(TAG, "Location available");
+
     WritableMap map = Arguments.createMap();
     map.putDouble("latitude", location.getLatitude());
     map.putDouble("longitude", location.getLongitude());
@@ -188,4 +201,5 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
       .getJSModule(RCTDeviceEventEmitter.class)
       .emit(EventType.ERROR, map);
   }
+
 }
