@@ -139,7 +139,8 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
 
   @Override
   public boolean onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
-    Log.e(TAG, "onRequestPermissionsResult");
+    if (mAssistant != null)
+      mAssistant.onPermissionsUpdated();
 
     return false;
   }

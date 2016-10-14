@@ -354,7 +354,6 @@ public class LocationAssistant
           " or register it explicitly with register().");
       return;
     }
-
     getPermissionAwareActivity().requestPermissions(
       new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, REQUEST_REQUEST_PERMISSION, listener);
   }
