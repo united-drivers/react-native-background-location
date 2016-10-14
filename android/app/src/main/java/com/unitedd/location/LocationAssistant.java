@@ -124,6 +124,11 @@ public class LocationAssistant
      * @param message a plain-text message with optional details
      */
     void onError(ErrorType type, String message);
+
+    /**
+     * Called when everything is ready.
+     */
+    void onUpdatesRequested();
   }
 
   /**
@@ -174,6 +179,8 @@ public class LocationAssistant
 
   // Internal state
   private boolean permissionGranted;
+  private boolean permissionDeclinedOnPrompt;
+  private boolean settingsDeclinedOnPrompt;
   private boolean locationRequested;
   private boolean locationStatusOk;
   private boolean changeSettings;
@@ -284,6 +291,8 @@ public class LocationAssistant
       googleApiClient.disconnect();
     }
     permissionGranted = false;
+    permissionDeclinedOnPrompt = false;
+    settingsDeclinedOnPrompt = false;
     locationRequested = false;
     locationStatusOk = false;
     updatesRequested = false;
@@ -306,6 +315,8 @@ public class LocationAssistant
    */
   public void reset() {
     permissionGranted = false;
+    permissionDeclinedOnPrompt = false;
+    settingsDeclinedOnPrompt = false;
     locationRequested = false;
     locationStatusOk = false;
     updatesRequested = false;
@@ -347,6 +358,7 @@ public class LocationAssistant
    * Brings up a system dialog asking the user to give location permission to the app.
    */
   public void requestLocationPermission() {
+    if (permissionDeclinedOnPrompt) return;
     if (activity == null) {
       if (!quiet)
         Log.e(getClass().getSimpleName(), "Need location permission, but no activity is registered! " +
@@ -362,7 +374,8 @@ public class LocationAssistant
    * Call this method at the end of your {@link Activity#onRequestPermissionsResult} implementation to notify the
    * LocationAssistant of an update in permissions.
    */
-  public void onPermissionsUpdated() {
+  public void onPermissionsUpdated(boolean permissionGrantedOnPrompt) {
+    permissionDeclinedOnPrompt = !permissionGrantedOnPrompt;
     acquireLocation();
   }
 
@@ -379,6 +392,8 @@ public class LocationAssistant
     if (resultCode == Activity.RESULT_OK) {
       changeSettings = false;
       locationStatusOk = true;
+    } else {
+      settingsDeclinedOnPrompt = true;
     }
     acquireLocation();
   }
@@ -390,6 +405,7 @@ public class LocationAssistant
    * Call this method only from within {@link Listener#onNeedLocationSettingsChange()}.
    */
   public void changeLocationSettings() {
+    if (settingsDeclinedOnPrompt) return;
     if (locationStatus == null) return;
     if (activity == null) {
       if (!quiet)
@@ -445,6 +461,7 @@ public class LocationAssistant
       return;
     }
     if (!updatesRequested) {
+      listener.onUpdatesRequested();
       requestLocationUpdates();
       // Check back in a few
       new Handler().postDelayed(new Runnable() {
@@ -543,6 +560,7 @@ public class LocationAssistant
     if (!googleApiClient.isConnected() || !permissionGranted || !locationRequested) return;
     try {
       LocationServices.FusedLocationApi.requestLocationUpdates(googleApiClient, locationRequest, this);
+
       updatesRequested = true;
     } catch (SecurityException e) {
       if (!quiet)

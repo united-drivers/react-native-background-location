@@ -3,9 +3,9 @@ package com.unitedd.location;
 import android.app.Activity;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.location.Location;
 import android.support.annotation.Nullable;
-import android.util.Log;
 import android.view.View;
 
 import com.facebook.react.bridge.ActivityEventListener;
@@ -36,8 +36,10 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
   private @Nullable Promise mPromise;
   private @Nullable LocationAssistant mAssistant;
   private boolean hasBeenPaused = false;
+  private boolean isObserving = false;
   private static final String TAG = "RCT_BACKGROUND_LOCATION";
   private static final int REQUEST_CHECK_SETTINGS = 0;
+  private static final int REQUEST_REQUEST_PERMISSION = 1;
 
   public BackgroundLocationModule(ReactApplicationContext reactContext) {
     super(reactContext);
@@ -86,6 +88,7 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
 
     // If assitant already exist, reject promise
     mAssistant = new LocationAssistant(getCurrentActivity(), this, accuracy, updateInterval, allowMockLocations);
+    mAssistant.setQuiet(true);
     mAssistant.start();
   }
 
@@ -97,6 +100,7 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
 
   @ReactMethod
   public void stopObserving() {
+    isObserving = false;
     if (mAssistant != null)
       mAssistant.stop();
   }
@@ -106,12 +110,9 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
     if (mAssistant != null)
       mAssistant.onActivityResult(requestCode, resultCode);
 
-    switch (requestCode) {
-      case REQUEST_CHECK_SETTINGS:
-        if (resultCode != Activity.RESULT_OK && mPromise != null) {
-          mPromise.reject("TRACKING_DECLINED", "User has declined location tracking");
-          mPromise = null;
-        }
+    if (requestCode == REQUEST_CHECK_SETTINGS && resultCode != Activity.RESULT_OK && mPromise != null) {
+      mPromise.reject("SETTINGS_ERROR", "User has declined location settings");
+      mPromise = null;
     }
   }
 
@@ -120,7 +121,7 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
 
   @Override
   public void onHostResume() {
-    if (mAssistant != null && !hasBeenPaused)
+    if (mAssistant != null && !hasBeenPaused && isObserving)
       mAssistant.reset();
     hasBeenPaused = false;
   }
@@ -139,8 +140,16 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
 
   @Override
   public boolean onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
-    if (mAssistant != null)
-      mAssistant.onPermissionsUpdated();
+    boolean granted = grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED;
+
+    if (mAssistant != null && requestCode == REQUEST_REQUEST_PERMISSION) {
+      mAssistant.onPermissionsUpdated(granted);
+
+      if (!granted && mPromise != null) {
+        mPromise.reject("PERMISSION_ERROR", "User has declined location permission");
+        mPromise = null;
+      }
+    }
 
     return false;
   }
@@ -152,9 +161,7 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
   }
 
   @Override
-  public void onExplainLocationPermission() {
-    Log.e(TAG, "onExplainLocationChange");
-  }
+  public void onExplainLocationPermission() {}
 
   @Override
   public void onNeedLocationSettingsChange() {
@@ -163,14 +170,20 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
   }
 
   @Override
-  public void onFallBackToSystemSettings(View.OnClickListener fromView, DialogInterface.OnClickListener fromDialog) {
-    Log.e(TAG, "onFallBackToSystemSettings");
+  public void onFallBackToSystemSettings(View.OnClickListener fromView, DialogInterface.OnClickListener fromDialog) {}
+
+  @Override
+  public void onUpdatesRequested() {
+    isObserving = true;
+
+    if (mPromise != null) {
+      mPromise.resolve(null);
+      mPromise = null;
+    }
   }
 
   @Override
   public void onNewLocationAvailable(Location location) {
-    Log.e(TAG, "Location available");
-
     WritableMap map = Arguments.createMap();
     map.putDouble("latitude", location.getLatitude());
     map.putDouble("longitude", location.getLongitude());
@@ -186,21 +199,24 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
   }
 
   @Override
-  public void onMockLocationsDetected(View.OnClickListener fromView, DialogInterface.OnClickListener fromDialog) {
-    Log.e(TAG, "onMockLocationsDetected");
-  }
+  public void onMockLocationsDetected(View.OnClickListener fromView, DialogInterface.OnClickListener fromDialog) {}
 
   @Override
   public void onError(LocationAssistant.ErrorType type, String message) {
     int code = type == LocationAssistant.ErrorType.RETRIEVAL ? 0 : 1;
 
-    WritableMap map = Arguments.createMap();
-    map.putInt("code", code);
-    map.putString("message", message);
+    if (mPromise != null) {
+      mPromise.reject("INIT_ERROR", message);
+      mPromise = null;
+    } else {
+      WritableMap map = Arguments.createMap();
+      map.putInt("code", code);
+      map.putString("message", message);
 
-    getReactApplicationContext()
-      .getJSModule(RCTDeviceEventEmitter.class)
-      .emit(EventType.ERROR, map);
+      getReactApplicationContext()
+        .getJSModule(RCTDeviceEventEmitter.class)
+        .emit(EventType.ERROR, map);
+    }
   }
 
 }
