@@ -63,17 +63,45 @@ class LocationManagerBridge : RCTEventEmitter {
 
     // This method starts the location update services through the SurveyLocationManager object of the class
     // (locationManager). Location services will only start if they are NOT already working and if the user has provided
-    // permisions for the use of location services (CLAuthorizationStatus.Authorized).
-    @objc func startLocationServices () -> Void {
-        self.locationManager.startLocationServices()
-        dispatch_async(dispatch_get_main_queue()) {
-            self.timer = NSTimer.scheduledTimerWithTimeInterval(1,
-                                                                target: self,
-                                                                selector: #selector(self.updateLocationEvent),
-                                                                userInfo: nil,
-                                                                repeats: true)
+    // permisions for the use of location services (CLAuthorizationStatus.Authorized). Any updates in the user's location
+    // are handled by the locationManager property.
+    @objc func startLocationServices (resolve: RCTPromiseResolveBlock, reject: RCTPromiseRejectBlock) -> Void {
+        var error: NSError? = nil
+        var errorMessage: String? = nil
+        var errorCode: Int = 0
+
+        do {
+            try self.locationManager.startLocationServices()
+        } catch LocationServiceError.Unauthorized {
+            errorCode = 1
+            errorMessage = "Application is not authorized to use location services"
+        } catch LocationServiceError.AlreadyEnabled {
+            errorCode = 2
+            errorMessage = "Location Updates already enabled"
+        } catch {
+            errorCode = 3
+            errorMessage = "Unknown location error"
         }
-        print("startlocationservices")
+
+        if errorCode > 0 {
+            error = NSError(domain: "LocationServiceError",
+                            code: errorCode,
+                            userInfo: [NSLocalizedDescriptionKey: errorMessage!])
+
+            reject("LocationServiceError", errorMessage, error)
+        } else {
+
+            dispatch_async(dispatch_get_main_queue()) {
+                self.timer = NSTimer.scheduledTimerWithTimeInterval(1,
+                                                                    target: self,
+                                                                    selector: #selector(self.updateLocationEvent),
+                                                                    userInfo: nil,
+                                                                    repeats: true)
+            }
+
+            resolve("success")
+        }
+
     }
 
   @objc func requestAlwaysAuthorization() {

@@ -2,6 +2,11 @@ import CoreLocation
 import CoreData
 import UIKit
 
+enum LocationServiceError: ErrorType {
+    case AlreadyEnabled
+    case Unauthorized
+}
+
 class LocationManager : NSObject, CLLocationManagerDelegate {
     // Date Format
     let DATEFORMAT : String = "dd-MM-yyyy, HH:mm:ss"
@@ -65,47 +70,37 @@ class LocationManager : NSObject, CLLocationManagerDelegate {
     func getKeepAlive() -> Double { return self.KeepAliveTimeInterval}
     func areUpdatesEnabled() -> Bool { return self.updatesEnabled}
 
-    // Starts location services if not enabled already, checks user permissions
-    func startLocationServices () -> Bool {
+    func startLocationServices() throws {
 
-        print("starting Location Updates")
-
-        if (CLLocationManager.authorizationStatus() == CLAuthorizationStatus.AuthorizedAlways){
-
-            if (!self.updatesEnabled){
-                // Location Accuracy, properties & Distance filter
-                self.locationManager.desiredAccuracy = kCLLocationAccuracyBest
-                self.locationManager.distanceFilter = kCLDistanceFilterNone
-                self.locationManager.allowsBackgroundLocationUpdates = true
-
-                // Start receiving location updates
-                self.locationManager.startUpdatingLocation()
-
-                self.updatesEnabled = true;
-
-                // Save Location Services ENABLED to NSUserDefaults
-                self.UserDefaults.setBool(true, forKey: self.LocationServicesControl_KEY)
-
-                print("Location Updates started")
-
-                return true
-
-            } else {
-                print("Location Updates already enabled")
-            }
-
-        } else {
-
-            print("Application is not authorized to use location services")
-            // TODO: Unauthorized, requests permissions again and makes recursive call
+        print("starting Location Updates: ", self.updatesEnabled)
+        guard (CLLocationManager.authorizationStatus() == CLAuthorizationStatus.AuthorizedAlways) else {
+            throw LocationServiceError.Unauthorized
         }
-        return false
+
+        guard (!self.updatesEnabled) else {
+            throw LocationServiceError.AlreadyEnabled
+        }
+
+        // Location Accuracy, properties & Distance filter
+        self.locationManager.desiredAccuracy = kCLLocationAccuracyBest
+        self.locationManager.distanceFilter = kCLDistanceFilterNone
+        self.locationManager.allowsBackgroundLocationUpdates = true
+
+        // Start receiving location updates
+        self.locationManager.startUpdatingLocation()
+
+        self.updatesEnabled = true;
+
+        // Save Location Services ENABLED to NSUserDefaults
+        self.UserDefaults.setBool(true, forKey: self.LocationServicesControl_KEY)
+
+        print("Location Updates started")
     }
 
     // Stops location services if not enabled already, checks user permissions
     func stopLocationServices() -> Bool {
 
-        if(self.updatesEnabled) {
+        if (self.updatesEnabled) {
 
             self.updatesEnabled = false;
             self.locationManager.stopUpdatingLocation()
@@ -121,6 +116,12 @@ class LocationManager : NSObject, CLLocationManagerDelegate {
 
             print("Location updates have not been enabled")
             return false
+        }
+    }
+
+    func requestAlwaysAuthorization() {
+        if CLLocationManager.authorizationStatus() != CLAuthorizationStatus.AuthorizedAlways {
+            self.locationManager.requestWhenInUseAuthorization()
         }
     }
 
@@ -144,30 +145,6 @@ class LocationManager : NSObject, CLLocationManagerDelegate {
         default:
 
             print("Accuracy not Changed")
-        }
-    }
-
-    // Returns true newDate input parameter is an NSDate with a time interval difference of 3600 (60 minutes).
-    // If zero returns true as no other record are in memory. Else returns false (invalid update)
-    func isUpdateValid (newDate: NSDate) -> Bool {
-
-        var interval = NSTimeInterval()
-
-        if let newestRecord = self.dataManager.getLocationRecord() {
-            let Date = newestRecord.timestamp
-            interval = newDate.timeIntervalSinceDate(Date)
-        }
-
-        if ((interval == 0) || (interval >= self.UpdatesInterval)) {
-
-            print("Location is VALID with interval:\(interval)")
-
-            return true
-        } else {
-
-            print("got location update")
-
-            return false
         }
     }
 
@@ -214,7 +191,7 @@ class LocationManager : NSObject, CLLocationManagerDelegate {
             UIApplication.sharedApplication().scheduleLocalNotification(localNotification)
 
             // TODO: Remove above after testing.
-            self.startLocationServices()
+            let _ = try? self.startLocationServices()
         }
     }
 
@@ -236,9 +213,7 @@ class LocationManager : NSObject, CLLocationManagerDelegate {
         if ((abs(Interval) < 5) && (accuracy != kCLLocationAccuracyThreeKilometers)) {
 
             // Updates Persistent record through the DataManager object
-            if isUpdateValid(newLocation.timestamp) {
-                dataManager.updateLocationRecord(newLocation)
-            }
+            dataManager.updateLocationRecord(newLocation)
 
             /* Timer initialized everytime an update is received. When timer expires, reverts accuracy to HIGH, thus
              enabling the delegate to receive new location updates */

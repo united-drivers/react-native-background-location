@@ -22,6 +22,11 @@ class BackgroundGeolocation extends Component {
 
   componentDidMount() {
     LocationManagerBridge.startLocationServices()
+                         .then(l => console.log(l))
+                         .catch(e => {
+                           console.log(e)
+                           LocationManagerBridge.requestAlwaysAuthorization()
+                         })
   }
 
   render() {

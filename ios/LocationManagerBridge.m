@@ -12,7 +12,7 @@
 
 @interface RCT_EXTERN_MODULE(LocationManagerBridge, NSObject)
 
-RCT_EXTERN_METHOD(startLocationServices)
+RCT_EXTERN_METHOD(startLocationServices:(RCTPromiseResolveBlock) resolve reject:(RCTPromiseRejectBlock) reject);
 RCT_EXTERN_METHOD(requestAlwaysAuthorization);
 RCT_EXTERN_METHOD(stopLocationServices)
 
