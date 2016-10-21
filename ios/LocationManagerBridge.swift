@@ -129,7 +129,11 @@ class LocationManagerBridge : RCTEventEmitter {
     // This method stops the location update services through the SurveyLocationManager object of the class
     // (locationManager). Location services will only stop if they are already working.
     @objc func stopLocationServices () -> Void {
+        // Reset scheduler
         self.timer.invalidate()
+        self.timer = NSTimer()
+
+        // stop location services
         self.locationManager.stopLocationServices()
     }
 
