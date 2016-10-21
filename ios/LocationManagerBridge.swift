@@ -139,26 +139,18 @@ class LocationManagerBridge : RCTEventEmitter {
 
     // If succesful this method return a dictionary information of the last location
     @objc func getLocationRecord () -> NSDictionary {
-      if let newLocation = self.locationManager.dataManager.getLocationRecord() {
+        let newLocation = self.locationManager.dataManager.getLocationRecord()
 
         // Houuray! A location exist
         let location: NSDictionary = [
           "longitude": newLocation.longitude,
           "latitude": newLocation.latitude,
           "altitude": newLocation.altitude,
-          "accuracy": newLocation.accuracy
+          "accuracy": newLocation.accuracy,
+          "timestamp": newLocation.timestamp.timeIntervalSince1970 as NSNumber
         ]
 
         return location
-      }
-
-      // No location
-      return [
-        "longitude": Double.NaN,
-        "latitude": Double.NaN,
-        "altitude": Double.NaN,
-        "accuracy": Double.NaN
-      ]
     }
 
     // Fixes date format for debuggin and parsing, adds timezone and returns as NSString

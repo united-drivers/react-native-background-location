@@ -24,6 +24,8 @@ class LocationData : NSObject, NSCoding {
 
         aCoder.encodeObject(self.latitude, forKey: "latitude")
         aCoder.encodeObject(self.longitude, forKey:"longitude")
+        aCoder.encodeObject(self.accuracy, forKey:"accuracy")
+        aCoder.encodeObject(self.altitude, forKey:"altitude")
         aCoder.encodeObject(self.timestamp, forKey:"timestamp")
     }
 }

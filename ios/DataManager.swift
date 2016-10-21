@@ -14,7 +14,7 @@ class DataManager {
     let LocationRecord_Key = "LOCATION_RECORD"
     let LocationData_Key = "LOCATION_DATA"
 
-    var locationRecord : LocationData? = nil
+    var locationRecord : LocationData! = LocationData()
 
     // User Defaults
     let UserDefaults: NSUserDefaults = NSUserDefaults.standardUserDefaults()
@@ -30,7 +30,7 @@ class DataManager {
         self.UserDefaults.synchronize()
     }
 
-    func getLocationRecord() -> LocationData? {
+    func getLocationRecord() -> LocationData {
         return self.locationRecord
     }
 
@@ -38,26 +38,15 @@ class DataManager {
     // getUpdatedRecord method and saves modified array to memory.
     func updateLocationRecord (newRecord: CLLocation) {
 
-        // Get CLLocation properties
-        let latitude:NSNumber = newRecord.coordinate.latitude
-        let longitude:NSNumber = newRecord.coordinate.longitude
-        let accuracy:NSNumber = newRecord.horizontalAccuracy
-        let altitude:NSNumber = newRecord.altitude
-        let time:NSDate = newRecord.timestamp
-
         let newLocationDataRecord = LocationData()
 
-        newLocationDataRecord.latitude  = latitude
-        newLocationDataRecord.longitude = longitude
-        newLocationDataRecord.altitude = altitude
-        newLocationDataRecord.accuracy = accuracy
-        newLocationDataRecord.timestamp = time
-
-        print("location updated")
+        newLocationDataRecord.latitude  = newRecord.coordinate.latitude as NSNumber!
+        newLocationDataRecord.longitude = newRecord.coordinate.longitude as NSNumber!
+        newLocationDataRecord.altitude = newRecord.altitude as NSNumber!
+        newLocationDataRecord.accuracy = newRecord.horizontalAccuracy as NSNumber!
+        newLocationDataRecord.timestamp = newRecord.timestamp as NSDate!
 
         self.locationRecord = newLocationDataRecord
-
-        print("--------------------")
 
         // Save new record
         // self.saveLocationRecord()
