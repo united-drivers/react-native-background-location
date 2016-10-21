@@ -8,10 +8,25 @@ class LocationManagerBridge : RCTEventEmitter {
 
     var updateInterval : Double = 2 // App gets a new location every 5 minutes to keep timers alive
 
+    var topController: UIViewController? = nil
+
     var timer = NSTimer()
 
     // Event const
     let LOCATION_EVENT = "location"
+
+    override init() {
+
+      super.init()
+
+      self.topController = UIApplication.sharedApplication().keyWindow?.rootViewController
+
+      if (self.topController != nil) {
+        while let presentedViewController = self.topController!.presentedViewController {
+          self.topController = presentedViewController
+        }
+      }
+    }
 
     override func supportedEvents() -> [String]! {
         return [
@@ -60,6 +75,28 @@ class LocationManagerBridge : RCTEventEmitter {
         }
         print("startlocationservices")
     }
+
+  @objc func requestAlwaysAuthorization() {
+    let alertController = UIAlertController(title: "Enable location first",
+                                            message: "Location permission was not authorized. Please enable it in Settings to continue.",
+                                            preferredStyle: .Alert)
+
+    let settingsAction = UIAlertAction(title: "Settings", style: .Default) { (alertAction) in
+
+      // THIS IS WHERE THE MAGIC HAPPENS!!!!
+      if let appSettings = NSURL(string: UIApplicationOpenSettingsURLString) {
+        UIApplication.sharedApplication().openURL(appSettings)
+      }
+    }
+    alertController.addAction(settingsAction)
+
+    let cancelAction = UIAlertAction(title: "Cancel", style: .Cancel, handler: nil)
+    alertController.addAction(cancelAction)
+
+    if (self.topController != nil) {
+      self.topController!.presentViewController(alertController, animated: true, completion: nil)
+    }
+  }
 
     // This method stops the location update services through the SurveyLocationManager object of the class
     // (locationManager). Location services will only stop if they are already working.
