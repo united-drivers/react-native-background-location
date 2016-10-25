@@ -147,7 +147,7 @@ class LocationManagerBridge : RCTEventEmitter {
           "latitude": newLocation.latitude,
           "altitude": newLocation.altitude,
           "accuracy": newLocation.accuracy,
-          "timestamp": newLocation.timestamp.timeIntervalSince1970 as NSNumber
+          "timestamp": newLocation.timestamp.timeIntervalSince1970 * 1000 as NSNumber // * 1000 in milliseconds
         ]
 
         return location
