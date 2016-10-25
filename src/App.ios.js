@@ -8,9 +8,9 @@ import {
 } from 'react-native'
 
 import NativeEventEmitter from 'NativeEventEmitter'
-import { LocationManagerBridge } from 'NativeModules'
+import { BackgroundLocation } from 'NativeModules'
 
-const BackgroundLocationEventEmitter = new NativeEventEmitter(LocationManagerBridge)
+const BackgroundLocationEventEmitter = new NativeEventEmitter(BackgroundLocation)
 
 class BackgroundGeolocation extends Component {
 
@@ -21,11 +21,11 @@ class BackgroundGeolocation extends Component {
   }
 
   componentDidMount() {
-    LocationManagerBridge.startLocationServices()
+    BackgroundLocation.startLocationServices()
                          .then(l => console.log(l))
                          .catch(e => {
                            console.log(e)
-                           LocationManagerBridge.requestAlwaysAuthorization()
+                           BackgroundLocation.requestAlwaysAuthorization()
                          })
   }
 

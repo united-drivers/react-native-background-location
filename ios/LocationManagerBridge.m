@@ -10,7 +10,7 @@
 #import "RCTBridgeModule.h"
 #import "RCTEventEmitter.h"
 
-@interface RCT_EXTERN_MODULE(LocationManagerBridge, NSObject)
+@interface RCT_EXTERN_REMAP_MODULE(BackgroundLocation, LocationManagerBridge, NSObject)
 
 RCT_EXTERN_METHOD(startLocationServices:(RCTPromiseResolveBlock) resolve reject:(RCTPromiseRejectBlock) reject);
 RCT_EXTERN_METHOD(requestAlwaysAuthorization);
