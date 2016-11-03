@@ -28,4 +28,16 @@ class LocationData : NSObject, NSCoding {
         aCoder.encodeObject(self.altitude, forKey:"altitude")
         aCoder.encodeObject(self.timestamp, forKey:"timestamp")
     }
+
+    func toDictionary() -> NSDictionary {
+        let location: NSDictionary = [
+          "longitude": self.longitude,
+          "latitude": self.latitude,
+          "altitude": self.altitude,
+          "accuracy": self.accuracy,
+          "timestamp": self.timestamp.timeIntervalSince1970 * 1000 as NSNumber // * 1000 in milliseconds
+        ]
+
+        return location
+    }
 }
