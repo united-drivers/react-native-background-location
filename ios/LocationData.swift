@@ -3,11 +3,11 @@ import CoreData
 
 class LocationData : NSObject, NSCoding {
 
-    var latitude : NSNumber!
-    var longitude: NSNumber!
-    var altitude: NSNumber!
-    var accuracy: NSNumber!
-    var timestamp: NSDate!
+    var latitude : NSNumber! = Double.NaN
+    var longitude: NSNumber! = Double.NaN
+    var altitude: NSNumber! = Double.NaN
+    var accuracy: NSNumber! = Double.NaN
+    var timestamp: NSDate! = nil
 
     required convenience init?(coder aDecoder: NSCoder) {
 
