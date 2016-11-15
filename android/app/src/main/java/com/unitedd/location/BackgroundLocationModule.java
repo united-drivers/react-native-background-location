@@ -7,21 +7,12 @@ import android.content.pm.PackageManager;
 import android.location.Location;
 import android.support.annotation.Nullable;
 import android.view.View;
-
-import com.facebook.react.bridge.ActivityEventListener;
-import com.facebook.react.bridge.Arguments;
-import com.facebook.react.bridge.LifecycleEventListener;
-import com.facebook.react.bridge.Promise;
-import com.facebook.react.bridge.ReactApplicationContext;
-import com.facebook.react.bridge.ReactContextBaseJavaModule;
-import com.facebook.react.bridge.ReactMethod;
-import com.facebook.react.bridge.ReadableMap;
-import com.facebook.react.bridge.WritableMap;
+import com.facebook.react.bridge.*;
 import com.facebook.react.common.MapBuilder;
 import com.facebook.react.module.annotations.ReactModule;
 import com.facebook.react.modules.core.DeviceEventManagerModule.RCTDeviceEventEmitter;
 import com.facebook.react.modules.core.PermissionListener;
-import com.unitedd.location.constant.AccuracyLevel;
+import com.google.android.gms.location.LocationRequest;
 import com.unitedd.location.constant.ErrorType;
 import com.unitedd.location.constant.EventType;
 
@@ -56,10 +47,10 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
     final Map<String, Object> constants = MapBuilder.newHashMap();
     WritableMap accuracyLevels = Arguments.createMap();
 
-    accuracyLevels.putInt("HIGH", AccuracyLevel.HIGH);
-    accuracyLevels.putInt("MEDIUM", AccuracyLevel.MEDIUM);
-    accuracyLevels.putInt("LOW", AccuracyLevel.LOW);
-    accuracyLevels.putInt("PASSIVE", AccuracyLevel.PASSIVE);
+    accuracyLevels.putInt("HIGH", LocationRequest.PRIORITY_HIGH_ACCURACY);
+    accuracyLevels.putInt("MEDIUM", LocationRequest.PRIORITY_BALANCED_POWER_ACCURACY);
+    accuracyLevels.putInt("LOW", LocationRequest.PRIORITY_LOW_POWER);
+    accuracyLevels.putInt("PASSIVE", LocationRequest.PRIORITY_NO_POWER);
 
     constants.put("AccuracyLevels", accuracyLevels);
     return constants;
@@ -68,16 +59,17 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
   @ReactMethod
   public void startObserving(ReadableMap options, final Promise promise) {
     mPromise = promise;
-
-    // Default Options
     LocationAssistant.Accuracy accuracy = LocationAssistant.Accuracy.MEDIUM;
 
-    if (options.hasKey("accuracy")) {
-      switch (options.getInt("accuracy")) {
-        case AccuracyLevel.HIGH: accuracy = LocationAssistant.Accuracy.HIGH; break;
-        case AccuracyLevel.LOW: accuracy = LocationAssistant.Accuracy.LOW; break;
-        case AccuracyLevel.PASSIVE: accuracy = LocationAssistant.Accuracy.PASSIVE; break;
-      }
+    if (options.hasKey("accuracy")) switch (options.getInt("accuracy")) {
+      case LocationRequest.PRIORITY_HIGH_ACCURACY:
+        accuracy = LocationAssistant.Accuracy.HIGH; break;
+      case LocationRequest.PRIORITY_LOW_POWER:
+        accuracy = LocationAssistant.Accuracy.LOW; break;
+      case LocationRequest.PRIORITY_NO_POWER:
+        accuracy = LocationAssistant.Accuracy.PASSIVE; break;
+      case LocationRequest.PRIORITY_BALANCED_POWER_ACCURACY:
+        accuracy = LocationAssistant.Accuracy.MEDIUM; break;
     }
 
     long updateInterval = options.hasKey("updateInterval")
@@ -85,7 +77,7 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
     boolean allowMockLocations = options.hasKey("allowMockLocations")
       ? options.getBoolean("allowMockLocations") : false;
 
-    // If assitant already exist, reject promise
+    // If assistant already exist, reject promise
     mLocationAssistant = new LocationAssistant(getCurrentActivity(), this, accuracy, updateInterval, allowMockLocations);
     mLocationAssistant.setQuiet(true);
     mLocationAssistant.start();
