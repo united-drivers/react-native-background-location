@@ -20,23 +20,20 @@ var Geolocation = {
    if (updatesEnabled) return
 
    BackgroundLocation.startObserving(options || {});
-   BackgroundLocationEventEmitter.addListener('backgroundLocationDidChange', success)
-   if (error) BackgroundLocationEventEmitter.addListener('backgroundLocationError', error)
+   //BackgroundLocationEventEmitter.addListener('backgroundLocationDidChange', success)
+   //if (error) BackgroundLocationEventEmitter.addListener('backgroundLocationError', error)
    updatesEnabled = true;
-  },
-
-  openLocationSettings: function() {
-    BackgroundLocation.openLocationSettings()
   },
 
   stopObserving: function() {
    if (!updatesEnabled) return
 
    BackgroundLocation.stopObserving();
-   BackgroundLocationEventEmitter.removeListener('backgroundLocationDidChange')
-   BackgroundLocationEventEmitter.removeListener('backgroundLocationError')
+   //BackgroundLocationEventEmitter.removeListener('backgroundLocationDidChange')
+   //BackgroundLocationEventEmitter.removeListener('backgroundLocationError')
    updatesEnabled = false;
-  }
+ },
+ AccuracyLevels: BackgroundLocation.AccuracyLevels
 };
 
 export default Geolocation;
