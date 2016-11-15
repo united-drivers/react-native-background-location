@@ -27,7 +27,6 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
 
   private @Nullable LocationAssistant mLocationAssistant;
   private @Nullable Promise mPromise;
-  private boolean isHostPausedBySettings = false;
   private boolean isObservingLocation = false;
   private static final String TAG = "RCT_BACKGROUND_LOCATION";
 
@@ -112,16 +111,12 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
   @Override
   public void onHostResume() {
     if (mLocationAssistant == null) return;
-    if (isObservingLocation && !isHostPausedBySettings)
+    if (isObservingLocation && !mLocationAssistant.isChangingSettings())
       mLocationAssistant.reset();
   }
 
   @Override
-  public void onHostPause() {
-    if (mLocationAssistant == null) return;
-    if (mLocationAssistant.isChangingSettings())
-      isHostPausedBySettings = true;
-  }
+  public void onHostPause() {}
 
   @Override
   public void onHostDestroy() {
