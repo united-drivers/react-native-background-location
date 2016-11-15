@@ -126,7 +126,7 @@ public class LocationAssistant
     void onError(ErrorType type, String message);
 
     /**
-     * Called when everything is ready.
+     * Called when location updates are requested.
      */
     void onUpdatesRequested();
   }
@@ -164,8 +164,8 @@ public class LocationAssistant
     RETRIEVAL
   }
 
-  private final int REQUEST_CHECK_SETTINGS = 0;
-  private final int REQUEST_REQUEST_PERMISSION = 1;
+  public final int REQUEST_CHECK_SETTINGS = 0;
+  public final int REQUEST_REQUEST_PERMISSION = 1;
 
   // Parameters
   protected Context context;
@@ -179,18 +179,17 @@ public class LocationAssistant
 
   // Internal state
   private boolean permissionGranted;
-  private boolean permissionDeclinedOnPrompt;
-  private boolean settingsDeclinedOnPrompt;
+  private boolean permissionPromptDeclined;
   private boolean locationRequested;
   private boolean locationStatusOk;
   private boolean changeSettings;
+  private boolean settingsPromptDeclined;
   private boolean updatesRequested;
   protected Location bestLocation;
   private GoogleApiClient googleApiClient;
   private LocationRequest locationRequest;
   private Status locationStatus;
   private boolean mockLocationsEnabled;
-  private boolean settingsDialogIsOn;
 
   // Mock location rejection
   private Location lastMockLocation;
@@ -291,8 +290,8 @@ public class LocationAssistant
       googleApiClient.disconnect();
     }
     permissionGranted = false;
-    permissionDeclinedOnPrompt = false;
-    settingsDeclinedOnPrompt = false;
+    permissionPromptDeclined = false;
+    settingsPromptDeclined = false;
     locationRequested = false;
     locationStatusOk = false;
     updatesRequested = false;
@@ -315,8 +314,8 @@ public class LocationAssistant
    */
   public void reset() {
     permissionGranted = false;
-    permissionDeclinedOnPrompt = false;
-    settingsDeclinedOnPrompt = false;
+    permissionPromptDeclined = false;
+    settingsPromptDeclined = false;
     locationRequested = false;
     locationStatusOk = false;
     updatesRequested = false;
@@ -358,7 +357,7 @@ public class LocationAssistant
    * Brings up a system dialog asking the user to give location permission to the app.
    */
   public void requestLocationPermission() {
-    if (permissionDeclinedOnPrompt) return;
+    if (permissionPromptDeclined) return;
     if (activity == null) {
       if (!quiet)
         Log.e(getClass().getSimpleName(), "Need location permission, but no activity is registered! " +
@@ -374,8 +373,8 @@ public class LocationAssistant
    * Call this method at the end of your {@link Activity#onRequestPermissionsResult} implementation to notify the
    * LocationAssistant of an update in permissions.
    */
-  public void onPermissionsUpdated(boolean permissionGrantedOnPrompt) {
-    permissionDeclinedOnPrompt = !permissionGrantedOnPrompt;
+  public void onPermissionsUpdated(boolean granted) {
+    permissionPromptDeclined = !granted;
     acquireLocation();
   }
 
@@ -388,12 +387,11 @@ public class LocationAssistant
    */
   public void onActivityResult(int requestCode, int resultCode) {
     if (requestCode != REQUEST_CHECK_SETTINGS) return;
-    settingsDialogIsOn = false;
-    if (resultCode == Activity.RESULT_OK) {
-      changeSettings = false;
+    changeSettings = false;
+    boolean isResultCodeOk = resultCode == Activity.RESULT_OK;
+    settingsPromptDeclined = !isResultCodeOk;
+    if (isResultCodeOk) {
       locationStatusOk = true;
-    } else {
-      settingsDeclinedOnPrompt = true;
     }
     acquireLocation();
   }
@@ -405,7 +403,7 @@ public class LocationAssistant
    * Call this method only from within {@link Listener#onNeedLocationSettingsChange()}.
    */
   public void changeLocationSettings() {
-    if (settingsDeclinedOnPrompt) return;
+    if (settingsPromptDeclined) return;
     if (locationStatus == null) return;
     if (activity == null) {
       if (!quiet)
@@ -415,7 +413,6 @@ public class LocationAssistant
       return;
     }
     try {
-      settingsDialogIsOn = true;
       locationStatus.startResolutionForResult(activity, REQUEST_CHECK_SETTINGS);
     } catch (IntentSender.SendIntentException e) {
       if (!quiet)
@@ -429,8 +426,13 @@ public class LocationAssistant
     }
   }
 
-  public boolean isSettingsDialogOn() {
-    return settingsDialogIsOn;
+  /**
+   * Call this method to know if the Settings dialog is visible on screen.
+   *
+   * @return boolean
+   */
+  public boolean isChangingSettings() {
+    return changeSettings;
   }
 
   protected void acquireLocation() {
@@ -461,7 +463,6 @@ public class LocationAssistant
       return;
     }
     if (!updatesRequested) {
-      listener.onUpdatesRequested();
       requestLocationUpdates();
       // Check back in a few
       new Handler().postDelayed(new Runnable() {
@@ -560,8 +561,8 @@ public class LocationAssistant
     if (!googleApiClient.isConnected() || !permissionGranted || !locationRequested) return;
     try {
       LocationServices.FusedLocationApi.requestLocationUpdates(googleApiClient, locationRequest, this);
-
       updatesRequested = true;
+      listener.onUpdatesRequested();
     } catch (SecurityException e) {
       if (!quiet)
         Log.e(getClass().getSimpleName(), "Error while requesting location updates:\n " +
@@ -575,54 +576,40 @@ public class LocationAssistant
   private DialogInterface.OnClickListener onGoToLocationSettingsFromDialog = new DialogInterface.OnClickListener() {
     @Override
     public void onClick(DialogInterface dialog, int which) {
-      if (activity != null) {
-        Intent intent = new Intent(android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS);
-        activity.startActivity(intent);
-      } else if (!quiet)
-        Log.e(getClass().getSimpleName(), "Need to launch an intent, but no activity is registered! " +
-          "Specify a valid activity when constructing " + getClass().getSimpleName() +
-          " or register it explicitly with register().");
+      startIntent(android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS);
     }
   };
 
   private View.OnClickListener onGoToLocationSettingsFromView = new View.OnClickListener() {
     @Override
     public void onClick(View v) {
-      if (activity != null) {
-        Intent intent = new Intent(android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS);
-        activity.startActivity(intent);
-      } else if (!quiet)
-        Log.e(getClass().getSimpleName(), "Need to launch an intent, but no activity is registered! " +
-          "Specify a valid activity when constructing " + getClass().getSimpleName() +
-          " or register it explicitly with register().");
+      startIntent(android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS);
     }
   };
 
   private DialogInterface.OnClickListener onGoToDevSettingsFromDialog = new DialogInterface.OnClickListener() {
     @Override
     public void onClick(DialogInterface dialog, int which) {
-      if (activity != null) {
-        Intent intent = new Intent(android.provider.Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS);
-        activity.startActivity(intent);
-      } else if (!quiet)
-        Log.e(getClass().getSimpleName(), "Need to launch an intent, but no activity is registered! " +
-          "Specify a valid activity when constructing " + getClass().getSimpleName() +
-          " or register it explicitly with register().");
+      startIntent(android.provider.Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS);
     }
   };
 
   private View.OnClickListener onGoToDevSettingsFromView = new View.OnClickListener() {
     @Override
     public void onClick(View v) {
-      if (activity != null) {
-        Intent intent = new Intent(android.provider.Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS);
-        activity.startActivity(intent);
-      } else if (!quiet)
-        Log.e(getClass().getSimpleName(), "Need to launch an intent, but no activity is registered! " +
-          "Specify a valid activity when constructing " + getClass().getSimpleName() +
-          " or register it explicitly with register().");
+      startIntent(android.provider.Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS);
     }
   };
+
+  private void startIntent(String provider) {
+    if (activity != null) {
+      Intent intent = new Intent(provider);
+      activity.startActivity(intent);
+    } else if (!quiet)
+      Log.e(getClass().getSimpleName(), "Need to launch an intent, but no activity is registered! " +
+        "Specify a valid activity when constructing " + getClass().getSimpleName() +
+        " or register it explicitly with register().");
+  }
 
   private boolean isLocationPlausible(Location location) {
     if (location == null) return false;

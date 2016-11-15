@@ -34,13 +34,11 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
   PermissionListener,
   LocationAssistant.Listener {
 
-  private @Nullable Promise mPromise;
   private @Nullable LocationAssistant mAssistant;
+  private @Nullable Promise mPromise;
   private boolean hasBeenPaused = false;
   private boolean isObserving = false;
   private static final String TAG = "RCT_BACKGROUND_LOCATION";
-  private static final int REQUEST_CHECK_SETTINGS = 0;
-  private static final int REQUEST_REQUEST_PERMISSION = 1;
 
   public BackgroundLocationModule(ReactApplicationContext reactContext) {
     super(reactContext);
@@ -111,7 +109,7 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
     if (mAssistant != null)
       mAssistant.onActivityResult(requestCode, resultCode);
 
-    if (requestCode == REQUEST_CHECK_SETTINGS && resultCode != Activity.RESULT_OK) {
+    if (mAssistant != null && requestCode == mAssistant.REQUEST_CHECK_SETTINGS && resultCode != Activity.RESULT_OK) {
       String message = "Settings declined";
 
       if (mPromise != null) {
@@ -135,7 +133,7 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
 
   @Override
   public void onHostPause() {
-    if (mAssistant != null && mAssistant.isSettingsDialogOn())
+    if (mAssistant != null && mAssistant.isChangingSettings())
       hasBeenPaused = true;
   }
 
@@ -149,7 +147,7 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
   public boolean onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
     boolean granted = grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED;
 
-    if (mAssistant != null && requestCode == REQUEST_REQUEST_PERMISSION) {
+    if (mAssistant != null && requestCode == mAssistant.REQUEST_REQUEST_PERMISSION) {
       mAssistant.onPermissionsUpdated(granted);
 
       if (!granted) {
