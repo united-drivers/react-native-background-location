@@ -34,10 +34,10 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
   PermissionListener,
   LocationAssistant.Listener {
 
-  private @Nullable LocationAssistant mAssistant;
+  private @Nullable LocationAssistant mLocationAssistant;
   private @Nullable Promise mPromise;
-  private boolean hasBeenPaused = false;
-  private boolean isObserving = false;
+  private boolean isHostPausedBySettings = false;
+  private boolean isObservingLocation = false;
   private static final String TAG = "RCT_BACKGROUND_LOCATION";
 
   public BackgroundLocationModule(ReactApplicationContext reactContext) {
@@ -86,38 +86,31 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
       ? options.getBoolean("allowMockLocations") : false;
 
     // If assitant already exist, reject promise
-    mAssistant = new LocationAssistant(getCurrentActivity(), this, accuracy, updateInterval, allowMockLocations);
-    mAssistant.setQuiet(true);
-    mAssistant.start();
-  }
-
-  @ReactMethod
-  public void checkSettings() {
-    if (mAssistant != null)
-      mAssistant.reset();
+    mLocationAssistant = new LocationAssistant(getCurrentActivity(), this, accuracy, updateInterval, allowMockLocations);
+    mLocationAssistant.setQuiet(true);
+    mLocationAssistant.start();
   }
 
   @ReactMethod
   public void stopObserving() {
-    isObserving = false;
-    if (mAssistant != null)
-      mAssistant.stop();
+    isObservingLocation = false;
+    if (mLocationAssistant != null)
+      mLocationAssistant.stop();
   }
 
   @Override
   public void onActivityResult(Activity activity, int requestCode, int resultCode, Intent data) {
-    if (mAssistant != null)
-      mAssistant.onActivityResult(requestCode, resultCode);
+    if (mLocationAssistant == null) return;
+    mLocationAssistant.onActivityResult(requestCode, resultCode);
 
-    if (mAssistant != null && requestCode == mAssistant.REQUEST_CHECK_SETTINGS && resultCode != Activity.RESULT_OK) {
+    if (requestCode == mLocationAssistant.REQUEST_CHECK_SETTINGS && resultCode != Activity.RESULT_OK) {
       String message = "Settings declined";
 
       if (mPromise != null) {
         mPromise.reject("SETTINGS_ERROR", message);
         mPromise = null;
-      } else {
+      } else
         emitError(ErrorType.SETTINGS_ERROR, message);
-      }
     }
   }
 
@@ -126,29 +119,31 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
 
   @Override
   public void onHostResume() {
-    if (mAssistant != null && !hasBeenPaused && isObserving)
-      mAssistant.reset();
-    hasBeenPaused = false;
+    if (mLocationAssistant == null) return;
+    if (isObservingLocation && !isHostPausedBySettings)
+      mLocationAssistant.reset();
   }
 
   @Override
   public void onHostPause() {
-    if (mAssistant != null && mAssistant.isChangingSettings())
-      hasBeenPaused = true;
+    if (mLocationAssistant == null) return;
+    if (mLocationAssistant.isChangingSettings())
+      isHostPausedBySettings = true;
   }
 
   @Override
   public void onHostDestroy() {
     stopObserving();
-    mAssistant = null;
+    mLocationAssistant = null;
   }
 
   @Override
   public boolean onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+    if (mLocationAssistant == null) return false;
     boolean granted = grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED;
 
-    if (mAssistant != null && requestCode == mAssistant.REQUEST_REQUEST_PERMISSION) {
-      mAssistant.onPermissionsUpdated(granted);
+    if (requestCode == mLocationAssistant.REQUEST_REQUEST_PERMISSION) {
+      mLocationAssistant.onPermissionsUpdated(granted);
 
       if (!granted) {
         String message = "Permissions declined";
@@ -156,9 +151,8 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
         if (mPromise != null) {
           mPromise.reject("PERMISSION_ERROR", message);
           mPromise = null;
-        } else {
+        } else
           emitError(ErrorType.PERMISSION_ERROR, message);
-        }
       }
     }
 
@@ -167,8 +161,8 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
 
   @Override
   public void onNeedLocationPermission() {
-    if (mAssistant != null)
-      mAssistant.requestLocationPermission();
+    if (mLocationAssistant != null)
+      mLocationAssistant.requestLocationPermission();
   }
 
   @Override
@@ -176,8 +170,8 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
 
   @Override
   public void onNeedLocationSettingsChange() {
-    if (mAssistant != null)
-      mAssistant.changeLocationSettings();
+    if (mLocationAssistant != null)
+      mLocationAssistant.changeLocationSettings();
   }
 
   @Override
@@ -185,7 +179,7 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
 
   @Override
   public void onUpdatesRequested() {
-    isObserving = true;
+    isObservingLocation = true;
 
     if (mPromise != null) {
       mPromise.resolve(null);
