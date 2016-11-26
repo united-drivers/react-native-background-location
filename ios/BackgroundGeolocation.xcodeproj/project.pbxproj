@@ -245,18 +245,18 @@
 		13B07FAE1A68108700A75B9A /* BackgroundGeolocation */ = {
 			isa = PBXGroup;
 			children = (
+				008F07F21AC5B25A0029DE68 /* main.jsbundle */,
+				13B07FAF1A68108700A75B9A /* AppDelegate.h */,
+				64ECD7A11DB62B6700C4B71D /* BackgroundGeolocation-Bridging-Header.h */,
+				13B07FB51A68108700A75B9A /* Images.xcassets */,
+				13B07FB61A68108700A75B9A /* Info.plist */,
+				13B07FB11A68108700A75B9A /* LaunchScreen.xib */,
 				64ECD7A21DB62B6800C4B71D /* DataManager.swift */,
 				64ECD7A31DB62B6800C4B71D /* LocationData.swift */,
 				64ECD7A41DB62B6800C4B71D /* LocationManager.swift */,
 				64ECD7A51DB62B6800C4B71D /* LocationManagerBridge.swift */,
-				008F07F21AC5B25A0029DE68 /* main.jsbundle */,
-				13B07FAF1A68108700A75B9A /* AppDelegate.h */,
 				13B07FB01A68108700A75B9A /* AppDelegate.m */,
-				13B07FB51A68108700A75B9A /* Images.xcassets */,
-				13B07FB61A68108700A75B9A /* Info.plist */,
-				13B07FB11A68108700A75B9A /* LaunchScreen.xib */,
 				13B07FB71A68108700A75B9A /* main.m */,
-				64ECD7A11DB62B6700C4B71D /* BackgroundGeolocation-Bridging-Header.h */,
 				64AA4C201DB64C0800AB1DD1 /* LocationManagerBridge.m */,
 			);
 			name = BackgroundGeolocation;
@@ -374,6 +374,7 @@
 				TargetAttributes = {
 					00E356ED1AD99517003FC87E = {
 						CreatedOnToolsVersion = 6.2;
+						LastSwiftMigration = 0810;
 						TestTargetID = 13B07F861A680F5B00A75B9A;
 					};
 					13B07F861A680F5B00A75B9A = {
@@ -611,6 +612,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 8.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 3.0;
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/BackgroundGeolocation.app/BackgroundGeolocation";
 			};
 			name = Debug;
@@ -625,6 +627,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 8.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 3.0;
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/BackgroundGeolocation.app/BackgroundGeolocation";
 			};
 			name = Release;
@@ -653,7 +656,7 @@
 				PRODUCT_NAME = BackgroundGeolocation;
 				SWIFT_OBJC_BRIDGING_HEADER = "BackgroundGeolocation-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
-				SWIFT_VERSION = 2.3;
+				SWIFT_VERSION = 3.0.1;
 				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Debug;
@@ -680,7 +683,7 @@
 				);
 				PRODUCT_NAME = BackgroundGeolocation;
 				SWIFT_OBJC_BRIDGING_HEADER = "BackgroundGeolocation-Bridging-Header.h";
-				SWIFT_VERSION = 2.3;
+				SWIFT_VERSION = 3.0.1;
 				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Release;

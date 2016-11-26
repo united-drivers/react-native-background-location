@@ -3,30 +3,30 @@ import CoreData
 
 class LocationData : NSObject, NSCoding {
 
-    var latitude : NSNumber! = Double.NaN
-    var longitude: NSNumber! = Double.NaN
-    var altitude: NSNumber! = Double.NaN
-    var accuracy: NSNumber! = Double.NaN
-    var timestamp: NSDate! = nil
+    var latitude : NSNumber = NSDecimalNumber.notANumber
+    var longitude: NSNumber = NSDecimalNumber.notANumber
+    var altitude: NSNumber = NSDecimalNumber.notANumber
+    var accuracy: NSNumber = NSDecimalNumber.notANumber
+    var timestamp: NSDate? = nil
 
     required convenience init?(coder aDecoder: NSCoder) {
 
         self.init()
 
-        self.latitude  = aDecoder.decodeObjectForKey("latitude") as! NSNumber?
-        self.longitude = aDecoder.decodeObjectForKey("longitude") as! NSNumber?
-        self.accuracy = aDecoder.decodeObjectForKey("accuracy") as! NSNumber?
-        self.altitude = aDecoder.decodeObjectForKey("altitude") as! NSNumber?
-        self.timestamp = aDecoder.decodeObjectForKey("timestamp") as! NSDate?
+        self.latitude  = aDecoder.decodeObject(forKey: "latitude") as! NSNumber
+        self.longitude = aDecoder.decodeObject(forKey: "longitude") as! NSNumber
+        self.accuracy = aDecoder.decodeObject(forKey: "accuracy") as! NSNumber
+        self.altitude = aDecoder.decodeObject(forKey: "altitude") as! NSNumber
+        self.timestamp = aDecoder.decodeObject(forKey: "timestamp") as? NSDate
     }
 
-    func encodeWithCoder(aCoder: NSCoder) {
+    func encode(with aCoder: NSCoder) {
 
-        aCoder.encodeObject(self.latitude, forKey: "latitude")
-        aCoder.encodeObject(self.longitude, forKey:"longitude")
-        aCoder.encodeObject(self.accuracy, forKey:"accuracy")
-        aCoder.encodeObject(self.altitude, forKey:"altitude")
-        aCoder.encodeObject(self.timestamp, forKey:"timestamp")
+        aCoder.encode(self.latitude, forKey: "latitude")
+        aCoder.encode(self.longitude, forKey:"longitude")
+        aCoder.encode(self.accuracy, forKey:"accuracy")
+        aCoder.encode(self.altitude, forKey:"altitude")
+        aCoder.encode(self.timestamp, forKey:"timestamp")
     }
 
     func toDictionary() -> NSDictionary {
@@ -35,7 +35,7 @@ class LocationData : NSObject, NSCoding {
           "latitude": self.latitude,
           "altitude": self.altitude,
           "accuracy": self.accuracy,
-          "timestamp": self.timestamp.timeIntervalSince1970 * 1000 as NSNumber // * 1000 in milliseconds
+          "timestamp": self.timestamp!.timeIntervalSince1970 * 1000 as NSNumber // * 1000 in milliseconds
         ]
 
         return location

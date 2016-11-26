@@ -2,7 +2,7 @@ import CoreLocation
 import CoreData
 import UIKit
 
-enum LocationServiceError: ErrorType {
+enum LocationServiceError: Error {
     case AlreadyEnabled
     case Unauthorized
 }
@@ -12,11 +12,11 @@ class LocationManager : NSObject, CLLocationManagerDelegate {
     let DATEFORMAT : String = "dd-MM-yyyy, HH:mm:ss"
 
     // Time intervals for scan
-    var UpdatesInterval : NSTimeInterval = 20
+    var UpdatesInterval : TimeInterval = 20
     var KeepAliveTimeInterval : Double = 10 // App gets a new location every 5 minutes to keep timers alive
 
     // NSTimer object for scheduling accuracy changes
-    var timer = NSTimer()
+    var timer = Timer()
 
     // Controls button calls
     var updatesEnabled = false
@@ -31,10 +31,11 @@ class LocationManager : NSObject, CLLocationManagerDelegate {
     var bgTask = UIBackgroundTaskInvalid
 
     // NSNotificationCenter to handle changes in App LifeCycle
-    var defaultCentre: NSNotificationCenter = NSNotificationCenter.defaultCenter()
+    var defaultCentre: NotificationCenter = NotificationCenter.default
 
     // NSUserDefaults - LocationServicesControl_KEY to be set to TRUE when user has enabled location services.
-    let UserDefaults: NSUserDefaults = NSUserDefaults.standardUserDefaults()
+    let userDefaults: UserDefaults = UserDefaults.standard
+
     let LocationServicesControl_KEY: String = "LocationServices"
 
     override init () {
@@ -46,8 +47,8 @@ class LocationManager : NSObject, CLLocationManagerDelegate {
         self.locationManager.delegate = self
 
         // Authorization for utilization of location services for background process
-        if (CLLocationManager.authorizationStatus() != CLAuthorizationStatus.AuthorizedAlways) {
-            self.locationManager.requestAlwaysAuthorization()
+        if (CLLocationManager.authorizationStatus() != CLAuthorizationStatus.authorizedWhenInUse) {
+            self.locationManager.requestWhenInUseAuthorization()
         }
         // END: Location Manager configuration ---------------------------------------------------------------------
 
@@ -55,25 +56,25 @@ class LocationManager : NSObject, CLLocationManagerDelegate {
         let terminateSelector: Selector = #selector(LocationManager.appWillTerminate)
         let relaunchSelector: Selector = #selector(LocationManager.appIsRelaunched)
 
-        self.defaultCentre.addObserver(self, selector: terminateSelector, name: UIApplicationWillTerminateNotification, object: nil)
-        self.defaultCentre.addObserver(self, selector: relaunchSelector, name: UIApplicationDidFinishLaunchingNotification, object: nil)
+        self.defaultCentre.addObserver(self, selector: terminateSelector, name: NSNotification.Name.UIApplicationWillTerminate, object: nil)
+        self.defaultCentre.addObserver(self, selector: relaunchSelector, name: NSNotification.Name.UIApplicationDidFinishLaunching, object: nil)
 
         print("Location Manager Instantiated")
     }
+
     required init(coder aDecoder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
 
-    func setIntervals(updatesInterval: NSTimeInterval){ self.UpdatesInterval = updatesInterval;}
+    func setIntervals(updatesInterval: TimeInterval){ self.UpdatesInterval = updatesInterval;}
     func setKeepAlive(keepAlive: Double){ self.KeepAliveTimeInterval = keepAlive;}
-    func getIntervals() -> NSTimeInterval { return self.UpdatesInterval}
+    func getIntervals() -> TimeInterval { return self.UpdatesInterval}
     func getKeepAlive() -> Double { return self.KeepAliveTimeInterval}
     func areUpdatesEnabled() -> Bool { return self.updatesEnabled}
 
     func startLocationServices() throws {
-
         print("starting Location Updates: ", self.updatesEnabled)
-        guard (CLLocationManager.authorizationStatus() == CLAuthorizationStatus.AuthorizedAlways) else {
+        guard (CLLocationManager.authorizationStatus() == CLAuthorizationStatus.authorizedWhenInUse) else {
             throw LocationServiceError.Unauthorized
         }
 
@@ -92,7 +93,7 @@ class LocationManager : NSObject, CLLocationManagerDelegate {
         self.updatesEnabled = true;
 
         // Save Location Services ENABLED to NSUserDefaults
-        self.UserDefaults.setBool(true, forKey: self.LocationServicesControl_KEY)
+        self.userDefaults.set(true, forKey: self.LocationServicesControl_KEY)
 
         print("Location Updates started")
     }
@@ -109,7 +110,7 @@ class LocationManager : NSObject, CLLocationManagerDelegate {
             self.timer.invalidate()
 
             // Save Location Services DISABLED to NSUserDefaults
-            self.UserDefaults.setBool(false, forKey: self.LocationServicesControl_KEY)
+            self.userDefaults.set(false, forKey: self.LocationServicesControl_KEY)
 
             return true
         } else {
@@ -119,33 +120,15 @@ class LocationManager : NSObject, CLLocationManagerDelegate {
         }
     }
 
-    func requestAlwaysAuthorization() {
-        if CLLocationManager.authorizationStatus() != CLAuthorizationStatus.AuthorizedAlways {
+    func requestWhenInUseAuthorization() {
+        if CLLocationManager.authorizationStatus() != CLAuthorizationStatus.authorizedWhenInUse {
             self.locationManager.requestWhenInUseAuthorization()
         }
     }
 
     // Toggles location manager's accuracy to save battery when waiting for timer to expire
-    func changeLocationAccuracy () {
-
-        let CurrentAccuracy = self.locationManager.desiredAccuracy
-
-        switch CurrentAccuracy {
-
-        case kCLLocationAccuracyBest: // Decreses Accuracy
-
-            self.locationManager.desiredAccuracy = kCLLocationAccuracyThreeKilometers
-            self.locationManager.distanceFilter = 99999
-
-        case kCLLocationAccuracyThreeKilometers: // Increaces Accuracy
-
-            self.locationManager.desiredAccuracy = kCLLocationAccuracyBest
-            self.locationManager.distanceFilter = kCLDistanceFilterNone
-
-        default:
-
-            print("Accuracy not Changed")
-        }
+    func changeLocationAccuracy (accuracy: CLLocationAccuracy) {
+         self.locationManager.distanceFilter = accuracy
     }
 
     // The AppDelegate triggers this method when the App is about to be terminated (Removed from memory due to
@@ -153,7 +136,7 @@ class LocationManager : NSObject, CLLocationManagerDelegate {
     // standard location services if running, and enable significant changes to re-start the app as soon as possible.
     func appWillTerminate (notification: NSNotification) {
 
-        let ServicesEnabled = self.UserDefaults.boolForKey(self.LocationServicesControl_KEY)
+        let ServicesEnabled = self.userDefaults.bool(forKey: self.LocationServicesControl_KEY)
 
         // Stops Standard Location Services if they have been enabled by the user
         if ServicesEnabled {
@@ -167,7 +150,8 @@ class LocationManager : NSObject, CLLocationManagerDelegate {
             // Enables Significant Location Changes services to restart the app ASAP
             self.locationManager.startMonitoringSignificantLocationChanges()
         }
-        NSUserDefaults.standardUserDefaults().synchronize()
+
+        UserDefaults.standard.synchronize()
     }
 
     // This method is called by the AppDelegate when the app starts. This method will stop the significant
@@ -178,7 +162,7 @@ class LocationManager : NSObject, CLLocationManagerDelegate {
         // Stops Significant Location Changes services when app is relaunched
         self.locationManager.stopMonitoringSignificantLocationChanges()
 
-        let ServicesEnabled = self.UserDefaults.boolForKey(self.LocationServicesControl_KEY)
+        let ServicesEnabled = self.userDefaults.bool(forKey: self.LocationServicesControl_KEY)
 
         // Re-Starts Standard Location Services if they have been enabled by the user
         if (ServicesEnabled) {
@@ -187,18 +171,18 @@ class LocationManager : NSObject, CLLocationManagerDelegate {
             let localNotification:UILocalNotification = UILocalNotification()
             localNotification.alertAction = "Application is running"
             localNotification.alertBody = "I'm Alive!"
-            localNotification.fireDate = NSDate(timeIntervalSinceNow: 1)
-            UIApplication.sharedApplication().scheduleLocalNotification(localNotification)
+            localNotification.fireDate = NSDate(timeIntervalSinceNow: 1) as Date
+            UIApplication.shared.scheduleLocalNotification(localNotification)
 
             // TODO: Remove above after testing.
             let _ = try? self.startLocationServices()
         }
     }
 
-    func locationManager(manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
 
-        self.bgTask = UIApplication.sharedApplication().beginBackgroundTaskWithExpirationHandler({
-                                                                                                     UIApplication.sharedApplication().endBackgroundTask(self.bgTask)
+        self.bgTask = UIApplication.shared.beginBackgroundTask(expirationHandler: {
+                                                                                                     UIApplication.shared.endBackgroundTask(self.bgTask)
                                                                                                      self.bgTask = UIBackgroundTaskInvalid
                                                                                                  })
 
@@ -206,30 +190,27 @@ class LocationManager : NSObject, CLLocationManagerDelegate {
         let newLocation = locations.last!
 
         // Filters bad location updates cached by the OS -----------------------------------------------------------
-        let Interval: NSTimeInterval = newLocation.timestamp.timeIntervalSinceNow
+        let Interval: TimeInterval = newLocation.timestamp.timeIntervalSinceNow
 
         let accuracy = self.locationManager.desiredAccuracy
 
         if ((abs(Interval) < 5) && (accuracy != kCLLocationAccuracyThreeKilometers)) {
 
             // Updates Persistent record through the DataManager object
-            dataManager.updateLocationRecord(newLocation)
+            dataManager.updateLocationRecord(newRecord: newLocation)
 
             /* Timer initialized everytime an update is received. When timer expires, reverts accuracy to HIGH, thus
              enabling the delegate to receive new location updates */
-            self.timer = NSTimer.scheduledTimerWithTimeInterval(self.KeepAliveTimeInterval,
+            self.timer = Timer.scheduledTimer(timeInterval: self.KeepAliveTimeInterval,
                                                                 target: self,
                                                                 selector: #selector(LocationManager.changeLocationAccuracy),
                                                                 userInfo: nil,
                                                                 repeats: false)
-
-            // Lowers accuracy to avoid battery drainage
-            self.changeLocationAccuracy()
         }
         // END: Filters bad location updates cached by the OS ------------------------------------------------------
     }
 
-    func locationManager(manager: CLLocationManager, didFailWithError error: NSError) {
+    private func locationManager(manager: CLLocationManager, didFailWithError error: NSError) {
         print("Location update error: \(error.localizedDescription)")
     }
 }

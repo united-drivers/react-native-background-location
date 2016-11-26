@@ -17,17 +17,16 @@ class DataManager {
     var locationRecord : LocationData! = LocationData()
 
     // User Defaults
-    let UserDefaults: NSUserDefaults = NSUserDefaults.standardUserDefaults()
-
+    let userDefaults: UserDefaults = UserDefaults.standard
     init () {}
 
     // Saves an array of LocationData as a NSArray of NSData objects in the NSUserDefaults by deleting old
     // instance and saving array from argument.
     func saveLocationRecord () {
         // Update old array from UserDefaults
-        self.UserDefaults.removeObjectForKey(LocationRecord_Key)
-        self.UserDefaults.setObject(self.locationRecord, forKey: LocationRecord_Key)
-        self.UserDefaults.synchronize()
+        self.userDefaults.removeObject(forKey: LocationRecord_Key)
+        self.userDefaults.set(self.locationRecord, forKey: LocationRecord_Key)
+        self.userDefaults.synchronize()
     }
 
     func getLocationRecord() -> LocationData {
@@ -53,17 +52,17 @@ class DataManager {
     }
 
     // Fixes date format for debuggin and parsing, adds timezone and returns as NSString
-    func fixDateFormat(date: NSDate) -> NSString {
+    func fixDateFormat(date: Date) -> String {
 
-        let dateFormatter = NSDateFormatter()
+        let dateFormatter = DateFormatter()
         // Format parameters
-        dateFormatter.timeStyle = NSDateFormatterStyle.MediumStyle
-        dateFormatter.dateStyle = NSDateFormatterStyle.ShortStyle
+        dateFormatter.timeStyle = DateFormatter.Style.medium
+        dateFormatter.dateStyle = DateFormatter.Style.short
 
         // Force date format to garantee consistency throught devices
         dateFormatter.dateFormat = DATEFORMAT
-        dateFormatter.timeZone = NSTimeZone()
+        dateFormatter.timeZone = NSTimeZone() as TimeZone!
 
-        return  dateFormatter.stringFromDate(date)
+        return  dateFormatter.string(from: date)
     }
 }

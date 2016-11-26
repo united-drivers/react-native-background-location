@@ -6,33 +6,34 @@ class LocationManagerBridge : RCTEventEmitter {
 
     let locationManager : LocationManager = LocationManager()
 
-    var updateInterval : Double = 2 // App gets a new location every 5 minutes to keep timers alive
+    // App gets a new location every 5 minutes to keep timers alive
+    var updateInterval : Double = 2
 
     var topController: UIViewController? = nil
 
-    var timer = NSTimer()
+    var timer = Timer()
 
     // Event const
-    let LOCATION_EVENT = "location"
+    let LOCATION_EVENT = "backgroundLocationDidChange"
 
     override init() {
 
-      super.init()
+        super.init()
 
-      self.topController = UIApplication.sharedApplication().keyWindow?.rootViewController
+        self.topController = UIApplication.shared.keyWindow?.rootViewController
 
-      if (self.topController != nil) {
-        while let presentedViewController = self.topController!.presentedViewController {
-          self.topController = presentedViewController
+        if (self.topController != nil) {
+            while let presentedViewController = self.topController!.presentedViewController {
+                self.topController = presentedViewController
+            }
         }
-      }
     }
 
     override func supportedEvents() -> [String]! {
         return [
           LOCATION_EVENT
         ]
-     }
+    }
 
     override func startObserving() {
         print("Start Observing")
@@ -41,31 +42,41 @@ class LocationManagerBridge : RCTEventEmitter {
         print("Stop Observing")
     }
 
+    @objc override func constantsToExport() -> [String : Any]! {
+        return [
+          "accuracy": [
+            "HIGH": kCLLocationAccuracyBestForNavigation,
+            "MEDIUM": kCLLocationAccuracyHundredMeters,
+            "LOW": kCLLocationAccuracyThreeKilometers
+          ]
+        ]
+    }
+
     func areLocationUpdatesEnabled () -> Bool {
         return self.locationManager.areUpdatesEnabled()
     }
 
-    func getKeepAliveTimeInterval () -> NSNumber {
-        return self.locationManager.getKeepAlive();
+    func getKeepAliveTimeInterval () -> Double {
+      return self.locationManager.getKeepAlive();
     }
 
-    func getUpdateIntervals () -> NSNumber{
+    func getUpdateIntervals () -> Double {
         return self.locationManager.getIntervals()
     }
 
     func setKeepAliveTimeInterval (interval: Double) {
-        self.locationManager.setKeepAlive(interval)
+        self.locationManager.setKeepAlive(keepAlive: interval)
     }
 
     func setUpdatesIntervals (interval: Double) {
-        self.locationManager.setIntervals(interval)
+        self.locationManager.setIntervals(updatesInterval: interval)
     }
 
     // This method starts the location update services through the SurveyLocationManager object of the class
     // (locationManager). Location services will only start if they are NOT already working and if the user has provided
     // permisions for the use of location services (CLAuthorizationStatus.Authorized). Any updates in the user's location
     // are handled by the locationManager property.
-    @objc func startLocationServices (resolve: RCTPromiseResolveBlock, reject: RCTPromiseRejectBlock) -> Void {
+    @objc func startLocationServices(_ options: NSDictionary, resolve: @escaping RCTPromiseResolveBlock, reject: RCTPromiseRejectBlock) -> Void {
         var error: NSError? = nil
         var errorMessage: String? = nil
         var errorCode: Int = 0
@@ -75,6 +86,7 @@ class LocationManagerBridge : RCTEventEmitter {
         } catch LocationServiceError.Unauthorized {
             errorCode = 1
             errorMessage = "Application is not authorized to use location services"
+            self.requestWhenInUseAuthorization()
         } catch LocationServiceError.AlreadyEnabled {
             errorCode = 2
             errorMessage = "Location Updates already enabled"
@@ -90,40 +102,43 @@ class LocationManagerBridge : RCTEventEmitter {
 
             reject("LocationServiceError", errorMessage, error)
         } else {
+            DispatchQueue.global().async {
+              DispatchQueue.main.async {
+                self.timer = Timer.scheduledTimer(timeInterval: 1,
+                                                  target: self,
+                                                  selector: #selector(self.updateLocationEvent),
+                                                  userInfo: nil,
+                                                  repeats: true)
+                }
+                resolve("success")
+              }
+          }
+    }
 
-            dispatch_async(dispatch_get_main_queue()) {
-                self.timer = NSTimer.scheduledTimerWithTimeInterval(1,
-                                                                    target: self,
-                                                                    selector: #selector(self.updateLocationEvent),
-                                                                    userInfo: nil,
-                                                                    repeats: true)
+  @objc func requestWhenInUseAuthorization() {
+        let alertController = UIAlertController(title: "Enable location first",
+                                                message: "Location permission was not authorized. Please enable it in Settings to continue.",
+                                                preferredStyle: .alert)
+
+        let settingsAction = UIAlertAction(title: "Settings", style: .default) { (alertAction) in
+
+            // THIS IS WHERE THE MAGIC HAPPENS!!!!
+            if let appSettings = NSURL(string: UIApplicationOpenSettingsURLString) {
+                UIApplication.shared.openURL(appSettings as URL)
             }
-
-            resolve("success")
         }
+        alertController.addAction(settingsAction)
 
+        let cancelAction = UIAlertAction(title: "Cancel", style: .cancel, handler: nil)
+        alertController.addAction(cancelAction)
+
+        if (self.topController != nil) {
+            self.topController!.present(alertController, animated: true, completion: nil)
+        }
     }
 
-  @objc func requestAlwaysAuthorization() {
-    let alertController = UIAlertController(title: "Enable location first",
-                                            message: "Location permission was not authorized. Please enable it in Settings to continue.",
-                                            preferredStyle: .Alert)
-
-    let settingsAction = UIAlertAction(title: "Settings", style: .Default) { (alertAction) in
-
-      // THIS IS WHERE THE MAGIC HAPPENS!!!!
-      if let appSettings = NSURL(string: UIApplicationOpenSettingsURLString) {
-        UIApplication.sharedApplication().openURL(appSettings)
-      }
-    }
-    alertController.addAction(settingsAction)
-
-    let cancelAction = UIAlertAction(title: "Cancel", style: .Cancel, handler: nil)
-    alertController.addAction(cancelAction)
-
-    if (self.topController != nil) {
-      self.topController!.presentViewController(alertController, animated: true, completion: nil)
-    }
+  func changeAccuracy(accuracy: CLLocationAccuracy) {
+    self.locationManager.changeLocationAccuracy(accuracy: accuracy)
   }
 
     // This method stops the location update services through the SurveyLocationManager object of the class
@@ -131,39 +146,40 @@ class LocationManagerBridge : RCTEventEmitter {
     @objc func stopLocationServices () -> Void {
         // Reset scheduler
         self.timer.invalidate()
-        self.timer = NSTimer()
+        self.timer = Timer()
 
         // stop location services
-        self.locationManager.stopLocationServices()
+        _ = self.locationManager.stopLocationServices()
     }
 
     // If succesful this method return a dictionary information of the last location
     @objc func getLocationRecord () -> NSDictionary {
-      let newLocation = self.locationManager.dataManager.getLocationRecord()
-      return newLocation.toDictionary()
+        let newLocation = self.locationManager.dataManager.getLocationRecord()
+        return newLocation.toDictionary()
     }
 
     // Fixes date format for debuggin and parsing, adds timezone and returns as NSString
-    func fixDateFormat(date: NSDate) -> NSString {
+    func fixDateFormat(date: Date) -> String {
 
         // Date Format
         let DATEFORMAT = "dd-MM-yyyy, HH:mm:ss"
 
-        let dateFormatter = NSDateFormatter()
+        let dateFormatter = DateFormatter()
+
         // Format parameters
-        dateFormatter.timeStyle = NSDateFormatterStyle.MediumStyle // Set time style
-        dateFormatter.dateStyle = NSDateFormatterStyle.ShortStyle // Set date style
+        dateFormatter.timeStyle = DateFormatter.Style.medium // Set time style
+        dateFormatter.dateStyle = DateFormatter.Style.short // Set date style
 
         // Force date format to garantee consistency throught devices
         dateFormatter.dateFormat = DATEFORMAT
-        dateFormatter.timeZone = NSTimeZone()
+        dateFormatter.timeZone = NSTimeZone() as TimeZone!
 
-        return  dateFormatter.stringFromDate(date)
+      return  dateFormatter.string(from: date)
     }
 
     // EVENT
     // Update location event
     func updateLocationEvent () {
-        self.sendEventWithName(LOCATION_EVENT, body: self.getLocationRecord())
+        self.sendEvent(withName: LOCATION_EVENT, body: self.getLocationRecord())
     }
 }
