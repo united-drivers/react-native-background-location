@@ -139,11 +139,7 @@ public class LocationAssistant
     /**
      * City-level accuracy, typically within 10km
      */
-    LOW,
-    /**
-     * Variable accuracy, purely dependent on updates requested by other apps
-     */
-    PASSIVE
+    LOW
   }
 
   public enum ErrorType {
@@ -211,11 +207,8 @@ public class LocationAssistant
         priority = LocationRequest.PRIORITY_BALANCED_POWER_ACCURACY;
         break;
       case LOW:
-        priority = LocationRequest.PRIORITY_LOW_POWER;
-        break;
-      case PASSIVE:
       default:
-        priority = LocationRequest.PRIORITY_NO_POWER;
+        priority = LocationRequest.PRIORITY_LOW_POWER;
     }
     this.updateInterval = updateInterval;
     this.allowMockLocations = allowMockLocations;

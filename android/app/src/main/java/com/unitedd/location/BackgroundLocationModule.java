@@ -49,7 +49,6 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
     accuracyLevels.putInt("HIGH", LocationRequest.PRIORITY_HIGH_ACCURACY);
     accuracyLevels.putInt("MEDIUM", LocationRequest.PRIORITY_BALANCED_POWER_ACCURACY);
     accuracyLevels.putInt("LOW", LocationRequest.PRIORITY_LOW_POWER);
-    accuracyLevels.putInt("PASSIVE", LocationRequest.PRIORITY_NO_POWER);
 
     constants.put("AccuracyLevels", accuracyLevels);
     return constants;
@@ -65,8 +64,6 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
         accuracy = LocationAssistant.Accuracy.HIGH; break;
       case LocationRequest.PRIORITY_LOW_POWER:
         accuracy = LocationAssistant.Accuracy.LOW; break;
-      case LocationRequest.PRIORITY_NO_POWER:
-        accuracy = LocationAssistant.Accuracy.PASSIVE; break;
       case LocationRequest.PRIORITY_BALANCED_POWER_ACCURACY:
         accuracy = LocationAssistant.Accuracy.MEDIUM; break;
     }
