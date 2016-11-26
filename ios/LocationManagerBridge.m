@@ -12,8 +12,8 @@
 
 @interface RCT_EXTERN_REMAP_MODULE(BackgroundLocation, LocationManagerBridge, NSObject)
 
-RCT_EXTERN_METHOD(startLocationServices:(RCTPromiseResolveBlock) resolve reject:(RCTPromiseRejectBlock) reject);
-RCT_EXTERN_METHOD(requestAlwaysAuthorization);
-RCT_EXTERN_METHOD(stopLocationServices)
+RCT_EXTERN_REMAP_METHOD(startWatching, startLocationServices:(NSDictionary *)options resolve:(RCTPromiseResolveBlock) resolve reject:(RCTPromiseRejectBlock) reject);
+RCT_EXTERN_REMAP_METHOD(requestAlwaysAuthorization, requestAlwaysAuthorization);
+RCT_EXTERN_REMAP_METHOD(stopWatching, stopLocationServices)
 
 @end
