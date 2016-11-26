@@ -55,7 +55,7 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
   }
 
   @ReactMethod
-  public void startObserving(ReadableMap options, final Promise promise) {
+  public void startWatching(ReadableMap options, final Promise promise) {
     mPromise = promise;
     LocationAssistant.Accuracy accuracy = LocationAssistant.Accuracy.MEDIUM;
 
@@ -80,7 +80,7 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
   }
 
   @ReactMethod
-  public void stopObserving() {
+  public void stopWatching() {
     isObservingLocation = false;
     if (mLocationAssistant != null)
       mLocationAssistant.stop();
@@ -117,7 +117,7 @@ public class BackgroundLocationModule extends ReactContextBaseJavaModule impleme
 
   @Override
   public void onHostDestroy() {
-    stopObserving();
+    stopWatching();
     mLocationAssistant = null;
   }
 

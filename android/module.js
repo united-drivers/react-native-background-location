@@ -19,16 +19,16 @@ var Geolocation = {
   watchPosition: function(success: Function, error?: Function, options?: GeoOptions): void {
    if (updatesEnabled) return
 
-   BackgroundLocation.startObserving(options || {});
+   BackgroundLocation.startWatching(options || {});
    //BackgroundLocationEventEmitter.addListener('backgroundLocationDidChange', success)
    //if (error) BackgroundLocationEventEmitter.addListener('backgroundLocationError', error)
    updatesEnabled = true;
   },
 
-  stopObserving: function() {
+  stopWatching: function() {
    if (!updatesEnabled) return
 
-   BackgroundLocation.stopObserving();
+   BackgroundLocation.stopWatching();
    //BackgroundLocationEventEmitter.removeListener('backgroundLocationDidChange')
    //BackgroundLocationEventEmitter.removeListener('backgroundLocationError')
    updatesEnabled = false;
