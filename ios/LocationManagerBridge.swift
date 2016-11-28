@@ -4,7 +4,7 @@ import CoreLocation
 @objc(LocationManagerBridge)
 class LocationManagerBridge : RCTEventEmitter {
 
-    let locationManager : LocationManager = LocationManager()
+    var locationManager : LocationManager = LocationManager()
 
     // App gets a new location every 5 minutes to keep timers alive
     var updateInterval : Double = 2
@@ -15,12 +15,13 @@ class LocationManagerBridge : RCTEventEmitter {
 
     // Event const
     let LOCATION_EVENT = "backgroundLocationDidChange"
+    let ERROR_EVENT = "backgroundLocationError"
 
     override init() {
-
         super.init()
 
         self.topController = UIApplication.shared.keyWindow?.rootViewController
+        self.locationManager.setErrorHandler(errorHandler: self.emitErrorEvent)
 
         if (self.topController != nil) {
             while let presentedViewController = self.topController!.presentedViewController {
@@ -31,7 +32,8 @@ class LocationManagerBridge : RCTEventEmitter {
 
     override func supportedEvents() -> [String]! {
         return [
-          LOCATION_EVENT
+          LOCATION_EVENT,
+          ERROR_EVENT
         ]
     }
 
@@ -77,43 +79,25 @@ class LocationManagerBridge : RCTEventEmitter {
     // permisions for the use of location services (CLAuthorizationStatus.Authorized). Any updates in the user's location
     // are handled by the locationManager property.
     @objc func startLocationServices(_ options: NSDictionary, resolve: @escaping RCTPromiseResolveBlock, reject: RCTPromiseRejectBlock) -> Void {
-        var error: NSError? = nil
-        var errorMessage: String? = nil
-        var errorCode: Int = 0
-
         do {
             try self.locationManager.startLocationServices()
-        } catch LocationServiceError.Unauthorized {
-            errorCode = 1
-            errorMessage = "Application is not authorized to use location services"
-            self.requestWhenInUseAuthorization()
-        } catch LocationServiceError.AlreadyEnabled {
-            errorCode = 2
-            errorMessage = "Location Updates already enabled"
-        } catch {
-            errorCode = 3
-            errorMessage = "Unknown location error"
+        } catch let error as NSError {
+          print(error)
+//          emitErrorEvent(error: Error as NSError)
+          return
         }
 
-        if errorCode > 0 {
-            error = NSError(domain: "LocationServiceError",
-                            code: errorCode,
-                            userInfo: [NSLocalizedDescriptionKey: errorMessage!])
-
-            reject("LocationServiceError", errorMessage, error)
-        } else {
-            DispatchQueue.global().async {
+        DispatchQueue.global().async {
               DispatchQueue.main.async {
                 self.timer = Timer.scheduledTimer(timeInterval: 1,
                                                   target: self,
                                                   selector: #selector(self.updateLocationEvent),
                                                   userInfo: nil,
                                                   repeats: true)
-                }
-                resolve("success")
-              }
           }
-    }
+          resolve("ok")
+      }
+  }
 
   @objc func requestWhenInUseAuthorization() {
         let alertController = UIAlertController(title: "Enable location first",
@@ -182,4 +166,10 @@ class LocationManagerBridge : RCTEventEmitter {
     func updateLocationEvent () {
         self.sendEvent(withName: LOCATION_EVENT, body: self.getLocationRecord())
     }
+
+    // Send error event
+    func emitErrorEvent(error: NSError?) -> Void {
+        self.sendEvent(withName: ERROR_EVENT, body: error)
+    }
+
 }

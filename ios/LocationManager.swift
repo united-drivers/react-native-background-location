@@ -11,6 +11,8 @@ class LocationManager : NSObject, CLLocationManagerDelegate {
     // Date Format
     let DATEFORMAT : String = "dd-MM-yyyy, HH:mm:ss"
 
+    var errorHandler : ((NSError?) -> Void)? = nil
+  
     // Time intervals for scan
     var UpdatesInterval : TimeInterval = 20
     var KeepAliveTimeInterval : Double = 10 // App gets a new location every 5 minutes to keep timers alive
@@ -71,7 +73,8 @@ class LocationManager : NSObject, CLLocationManagerDelegate {
     func getIntervals() -> TimeInterval { return self.UpdatesInterval}
     func getKeepAlive() -> Double { return self.KeepAliveTimeInterval}
     func areUpdatesEnabled() -> Bool { return self.updatesEnabled}
-
+    func setErrorHandler(errorHandler: @escaping (NSError?) -> Void) { self.errorHandler = errorHandler }
+  
     func startLocationServices() throws {
         print("starting Location Updates: ", self.updatesEnabled)
         guard (CLLocationManager.authorizationStatus() == CLAuthorizationStatus.authorizedWhenInUse) else {
@@ -211,6 +214,10 @@ class LocationManager : NSObject, CLLocationManagerDelegate {
     }
 
     private func locationManager(manager: CLLocationManager, didFailWithError error: NSError) {
+        if self.errorHandler != nil {
+          self.errorHandler!(error)
+        }
+
         print("Location update error: \(error.localizedDescription)")
     }
 }
